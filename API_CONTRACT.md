@@ -1,6 +1,6 @@
 # API contract
 
-Implemented Mission Service routes are identified below. Remaining Hazard, assessment, and map routes are planned. JSON APIs use `/api/v1`, UUID IDs, UTC ISO-8601 times, GeoJSON longitude/latitude, validated input, and safe problem responses.
+Implemented Mission Service routes and the Hazard Service weather-assessment route are identified below. Hazard reporting, assessment history, and map routes remain planned. JSON APIs use `/api/v1`, UUID IDs, UTC ISO-8601 times, GeoJSON longitude/latitude, validated input, and safe problem responses.
 
 ## Mission Service
 
@@ -57,6 +57,26 @@ The current check response does not indicate the total number of available restr
 The frontend mission operations panel displays only API-backed mission properties, geodesic WGS84 area/perimeter estimates, the latest client-observed check time/result, and the dataset inventory limitations. These measurements are approximate spherical geodesic values, not operational tolerances. Saved mission export is a GeoJSON `Feature` with its existing Polygon and only `id`, `name`, `description`, and `createdAt` properties; coordinate order is longitude/latitude. Export is client-side and does not add a backend route.
 
 ## Hazard Service
+
+Implemented weather assessment:
+
+| Method | Path | Purpose | Result |
+|---|---|---|---|
+| POST | `/api/v1/hazards/weather-assessment` | Retrieve an on-demand Open-Meteo hourly forecast for a point, mission Polygon, or ordered route | `200`, `400` invalid input, `502` malformed/upstream response, or `503` provider unavailable after bounded retries |
+
+Example route request:
+
+```json
+{"assessmentType":"ROUTE","geometry":{"type":"LineString","coordinates":[[77.59,12.97],[77.61,12.99]]},"forecastHours":24}
+```
+
+`assessmentType` is `POINT`, `POLYGON`, or `ROUTE`, and must match the GeoJSON type. `forecastHours` is optional (default 24) and bounded by the configured maximum (default 72). Requests are limited to 64 KiB. WGS84 coordinate order is `[longitude, latitude]`. Polygon assessments use one JTS interior point; route assessments validate 2–64 waypoints and sample the full geodesic route at configured spacing, with configured maximum sample count and route length. A point assessment accepts a GeoJSON Point. This endpoint does not require a saved mission ID and does not store request or response data.
+
+The response includes assessment UUID, COMPLETE/PARTIAL status, provider name, retrieval instant, UTC timezone, forecast horizon and sampling strategy; per-location hourly values (temperature °C, wind/gust m/s, precipitation as mm accumulated over the preceding hour); aggregate ranges and route sample-mean ranges; configured general planning thresholds; threshold warning records with timestamps/locations; and limitations. Missing provider values are represented as `null`; they are not treated as zero. A response is PARTIAL if required fields or requested hourly forecast points are missing. A successful response means only that forecast data was obtained. No-warning output does not establish flight suitability, safety, legality, or clearance. It is not a current observation or aviation weather briefing. Open-Meteo fields follow its [Forecast API documentation](https://open-meteo.com/en/docs); precipitation is the preceding-hour sum in mm, and model/availability may change.
+
+Provider HTTP calls use configurable connect/read timeouts (defaults 3 s/6 s) and up to three attempts with short bounded backoff for rate-limit, server, and network failures. No provider key is required for the configured forecast endpoint. Cross-origin access is limited by `CORS_ALLOWED_ORIGINS` (local default `http://localhost:5173`).
+
+The separate weather endpoint does not implement the hazard-report CRUD, attachment presigning, persistence, or Kafka contracts listed below; those remain planned.
 
 | Method | Path | Purpose | Result |
 |---|---|---|---|

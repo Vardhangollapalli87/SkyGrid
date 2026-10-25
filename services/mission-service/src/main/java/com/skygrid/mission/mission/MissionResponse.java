@@ -28,4 +28,9 @@ public record MissionResponse(UUID id, String name, String description, Instant 
                 MissionGeometryCodec.toGeoJson(mission.getRoute())
         );
     }
+
+    @Override
+    public String toString() {
+        return "MissionResponse[fields redacted]";
+    }
 }

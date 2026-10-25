@@ -4,7 +4,7 @@ SkyGrid is a decision-support prototype for assessing proposed drone mission are
 
 ## Project status
 
-The Mission Service supports mission CRUD, validated GeoJSON Polygon and LineString route storage in PostGIS, and polygon restricted-zone intersection checks. The React/Vite frontend provides a map-first mission workspace for listing, drawing, validating, saving, editing ordered routes, and exporting Polygon/LineString GeoJSON. Route distance is an estimated ground-track value only. Risk scoring, Hazard Service, Kafka, authentication, and deployment remain unimplemented. The zone-check API cannot establish whether its restricted-zone dataset is complete or populated; the frontend reports that limitation and never describes a mission as safe or cleared. See [docs/HANDOFF.md](docs/HANDOFF.md).
+The Mission Service supports mission CRUD, validated GeoJSON Polygon and LineString route storage in PostGIS, and polygon restricted-zone intersection checks. The separate Hazard Service provides on-demand hourly weather assessments for saved mission polygons and routes using Open-Meteo. The React/Vite frontend provides a map-first workspace for planning, saving, exporting, and reviewing weather forecasts. Weather is general planning information, never aviation clearance or a safety determination. Risk scoring, hazard reporting, Kafka, authentication, and deployment remain unimplemented. The zone-check API cannot establish whether its restricted-zone dataset is complete or populated; the frontend reports that limitation and never describes a mission as safe or cleared. See [docs/HANDOFF.md](docs/HANDOFF.md).
 
 ## Approved development workflow
 
@@ -30,7 +30,7 @@ All restrictions and hazards are demonstration data. No official aviation data, 
 
 ```text
 services/mission-service/  Mission API, risk engine, event consumer
-services/hazard-service/   Hazard API, event producer
+services/hazard-service/   Weather forecast API; future hazard-report/event producer
 frontend/                  React/Vite application
 infra/                     Cloud environment variable reference
 docs/                      Design and handoff documentation
@@ -54,10 +54,10 @@ Copy-Item .env.example .env.local
 npm run dev
 ```
 
-Leave `VITE_API_BASE_URL` empty for local development; Vite proxies `/api` requests to `http://localhost:8081`, avoiding a local CORS change. Set it to the public Mission Service origin for a deployed frontend. Set `VITE_MAP_TILE_URL` only to a tile service whose usage policy and traffic allowance fit the demo; the default OpenStreetMap endpoint is subject to its [tile usage policy](https://operations.osmfoundation.org/policies/tiles/), including attribution, caching, no bulk prefetch, and best-effort availability. If you replace that URL, set matching `VITE_MAP_TILE_ATTRIBUTION`. The alternate Carto light layer is also public and subject to [CARTO Basemaps terms](https://carto.com/legal/basemap-terms/). These URLs are public configuration, not credentials; neither provider is represented as unlimited or guaranteed free for production traffic.
+Leave `VITE_API_BASE_URL` and `VITE_HAZARD_API_BASE_URL` empty for local development. Vite proxies Mission `/api` requests to port 8081 and `/hazard-api/api` requests to Hazard Service port 8082. For deployment, set the two variables to the corresponding public service origins; configure each service's CORS for the exact frontend origin. Set `VITE_MAP_TILE_URL` only to a tile service whose usage policy and traffic allowance fit the demo; the default OpenStreetMap endpoint is subject to its [tile usage policy](https://operations.osmfoundation.org/policies/tiles/), including attribution, caching, no bulk prefetch, and best-effort availability. If you replace that URL, set matching `VITE_MAP_TILE_ATTRIBUTION`. The alternate Carto light layer is also public and subject to [CARTO Basemaps terms](https://carto.com/legal/basemap-terms/). These URLs are public configuration, not credentials; neither provider is represented as unlimited or guaranteed free for production traffic.
 
 Run frontend checks from `frontend/` with `npm test`, `npm run lint`, and `npm run build`. The browser never receives database, Kafka, or cloud credentials. Local environment files and generated assets are ignored by `frontend/.gitignore`.
 
 ## Application status
 
-The Mission Service and frontend include backward-compatible Polygon missions plus separately stored LineString waypoint routes with route editing and export. The route planner does not estimate duration, battery, altitude, speed, obstacle avoidance, or clearance. The restricted-zone API cannot distinguish an empty zone dataset from a completed negative check, so the frontend explicitly labels negative results as “No intersection in returned dataset” and says dataset completeness is unknown. Hazard reporting, risk assessments/history, Kafka, and deployment URLs do not exist yet.
+The Mission Service and frontend include backward-compatible Polygon missions plus separately stored LineString waypoint routes with route editing and export. The Hazard Service weather endpoint is stateless and fetches forecasts on demand; it does not persist weather, perform risk scoring, or report aviation weather. The route planner does not estimate duration, battery, altitude, speed, obstacle avoidance, or clearance. The restricted-zone API cannot distinguish an empty zone dataset from a completed negative check, so the frontend explicitly labels negative results as “No intersection in returned dataset” and says dataset completeness is unknown. Hazard reporting, risk assessments/history, Kafka, and deployment URLs do not exist yet.

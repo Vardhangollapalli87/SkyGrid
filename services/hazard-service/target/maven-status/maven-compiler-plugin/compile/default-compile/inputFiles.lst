@@ -1,0 +1,14 @@
+C:\Users\vardh\OneDrive\Desktop\SkyGrid\services\hazard-service\src\main\java\com\skygrid\hazard\api\WeatherAssessmentController.java
+C:\Users\vardh\OneDrive\Desktop\SkyGrid\services\hazard-service\src\main\java\com\skygrid\hazard\api\WeatherAssessmentRequest.java
+C:\Users\vardh\OneDrive\Desktop\SkyGrid\services\hazard-service\src\main\java\com\skygrid\hazard\api\WeatherAssessmentResponse.java
+C:\Users\vardh\OneDrive\Desktop\SkyGrid\services\hazard-service\src\main\java\com\skygrid\hazard\api\WeatherExceptionHandler.java
+C:\Users\vardh\OneDrive\Desktop\SkyGrid\services\hazard-service\src\main\java\com\skygrid\hazard\config\AssessmentBodyLimitFilter.java
+C:\Users\vardh\OneDrive\Desktop\SkyGrid\services\hazard-service\src\main\java\com\skygrid\hazard\config\HttpConfiguration.java
+C:\Users\vardh\OneDrive\Desktop\SkyGrid\services\hazard-service\src\main\java\com\skygrid\hazard\config\WeatherProperties.java
+C:\Users\vardh\OneDrive\Desktop\SkyGrid\services\hazard-service\src\main\java\com\skygrid\hazard\domain\AssessmentGeometry.java
+C:\Users\vardh\OneDrive\Desktop\SkyGrid\services\hazard-service\src\main\java\com\skygrid\hazard\domain\AssessmentLocations.java
+C:\Users\vardh\OneDrive\Desktop\SkyGrid\services\hazard-service\src\main\java\com\skygrid\hazard\HazardServiceApplication.java
+C:\Users\vardh\OneDrive\Desktop\SkyGrid\services\hazard-service\src\main\java\com\skygrid\hazard\provider\OpenMeteoClient.java
+C:\Users\vardh\OneDrive\Desktop\SkyGrid\services\hazard-service\src\main\java\com\skygrid\hazard\provider\WeatherProvider.java
+C:\Users\vardh\OneDrive\Desktop\SkyGrid\services\hazard-service\src\main\java\com\skygrid\hazard\provider\WeatherProviderException.java
+C:\Users\vardh\OneDrive\Desktop\SkyGrid\services\hazard-service\src\main\java\com\skygrid\hazard\service\WeatherAssessmentService.java

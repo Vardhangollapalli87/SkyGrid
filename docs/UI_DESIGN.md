@@ -1,6 +1,6 @@
 # UI design specification (implemented baseline)
 
-The Mission API accepts GeoJSON mission polygons and LineString routes and returns stored restricted-zone intersection results for polygons. The current frontend implements mission workspace, polygon planning, ordered waypoint route editing, CRUD display, and restricted-zone check. Selected missions show saved state, geometry validity, spherical geodesic area/perimeter estimates, API-backed dataset coverage limitations, and check result/time. Polygon and route exports are GeoJSON. Route distance is only an estimated geodesic ground track. It displays backend results without calculating intersections. The current API cannot distinguish an empty zone dataset from a complete negative query; the UI calls this out. SkyGrid is a prototype decision-support tool, not an aviation authority UI. Label restrictions/hazards as demonstration data and never imply clearance or a safety guarantee.
+The Mission API accepts GeoJSON mission polygons and LineString routes and returns stored restricted-zone intersection results for polygons. The current frontend implements mission workspace, polygon planning, ordered waypoint route editing, CRUD display, restricted-zone check, and an on-demand weather assessment panel backed by Hazard Service. Selected missions show saved state, geometry validity, spherical geodesic area/perimeter estimates, API-backed dataset coverage limitations, and check result/time. Polygon and route exports are GeoJSON. Route distance is only an estimated geodesic ground track. Weather UI shows provider/retrieval/horizon, route samples, aggregate ranges, configured general thresholds, warning timestamps, partial data and limitations; it distinguishes missing values from zero and states that no-warning output is not a safety determination. It displays backend results without calculating intersections or weather thresholds. The current airspace API cannot distinguish an empty zone dataset from a complete negative query; the UI calls this out. SkyGrid is a prototype decision-support tool, not an aviation authority UI. Label restrictions/hazards as demonstration data and never imply clearance or a safety guarantee.
 
 ## Visual system
 
@@ -19,6 +19,8 @@ Tokens are an initial direction, not existing code.
 3. Mission detail: current score/level and time, factors, intersection warning, map and assessment timeline; explain event-driven changes.
 4. Hazard report: type/severity, map point or coordinates, description, validation/confirmation; evidence only after S3 milestone.
 5. Mission history: timestamped scores, changed factors, loading and empty states.
+
+6. Weather assessment (implemented in the selected-mission panel): assessment is on demand. Show idle, loading, complete, partial, validation error, and provider unavailable states; preserve prior values only when clearly marked stale. Show per-route sample locations and forecast counts, field ranges, threshold warnings, provider attribution, retrieval time, and policy limitations. Do not display fabricated values, treat missing data as zero, infer aircraft readiness, or frame a no-warning forecast as clearance.
 
 ## Interaction/accessibility
 

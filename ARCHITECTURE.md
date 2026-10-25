@@ -2,7 +2,7 @@
 
 ## Status
 
-Mission Service CRUD and the PostGIS mission-geometry/restricted-zone foundation are implemented and tested. The React/Vite mission workspace is implemented against the current Mission API. Hazard Service, Kafka flow, risk scoring, authentication, and deployment remain planned. SkyGrid is a decision-support prototype with demonstration data, not flight authorization or safety certification. Approved workflow is cloud-first: VS Code/Codex, local Java 25 and Vite, managed PostgreSQL/PostGIS and Kafka, AWS S3, Vercel frontend, and a compatible container host for services. No local database, broker, Docker, or Compose setup. Docker is introduced in deployment preparation only.
+Mission Service CRUD and the PostGIS mission-geometry/restricted-zone foundation are implemented and tested. The React/Vite mission workspace and a separate stateless Hazard Service weather-assessment API are implemented. Hazard report persistence, Kafka flow, risk scoring, authentication, and deployment remain planned. SkyGrid is a decision-support prototype with demonstration data, not flight authorization or safety certification. Approved workflow is cloud-first: VS Code/Codex, local Java 25 and Vite, managed PostgreSQL/PostGIS and Kafka, AWS S3, Vercel frontend, and a compatible container host for services. No local database, broker, Docker, or Compose setup. Docker is introduced in deployment preparation only.
 
 Spring Boot 3.5.16 is the pinned candidate. Official Spring Boot 3.5 system requirements list Java compatibility through Java 25. This verifies framework support, not this project's build, dependencies, database driver, or hosting runtime; those require build/runtime verification.
 
@@ -13,6 +13,7 @@ flowchart LR
   U[Operator] --> FE[React and TypeScript]
   FE -->|HTTPS JSON| MS[Mission Service]
   FE -->|HTTPS JSON| HS[Hazard Service]
+  HS -->|HTTPS forecast request| OM[Open-Meteo Forecast API]
   MS --> PG[(Postgres/PostGIS mission schema)]
   HS --> PGH[(Postgres hazard schema)]
   HS -->|hazardId key| K[(Kafka hazard-events)]
@@ -27,10 +28,12 @@ Managed PostgreSQL may host both schemas or separate databases; each service rec
 
 - **Mission Service:** implemented mission CRUD, GeoJSON Polygon and LineString route validation/persistence, and PostGIS restricted-zone intersection checks for polygon areas. Deterministic scoring, hazard proximity, risk factors, immutable history, and event consumption/dedupe/reassessment remain planned. Risk engine remains inside Mission Service.
 - Mission Service also owns the additive `airspace_features` spatial/source-record table and `airspace_dataset_imports` inventory. Local fixed-snapshot import is opt-in, idempotent by source identity, and commits bounded batches with an explicit attempt status; incomplete/failed attempts are excluded from viewport and restriction queries. Only validated compatible restriction geometries participate in the existing PostGIS check; non-spatial India AIP documents, FAA guidance, and other categories are excluded. Supplied-source coverage is unverified.
-- **Hazard Service:** hazard validation/persistence/retrieval, versioned event publication, optional attachment metadata and S3 presigning.
+- **Hazard Service:** implemented stateless, on-demand Open-Meteo forecast retrieval and weather assessment for point, Polygon, or sampled route geometry. It validates WGS84 input, bounds route length/sample count, applies configured general planning thresholds, and returns missing values as null. It has no database, cache, Kafka, or risk-scoring behavior. Hazard report validation/persistence/retrieval, versioned event publication, optional attachment metadata and S3 presigning remain planned.
 - **Frontend:** implemented mission list/detail, map, polygon editing, mission creation, and backend restricted-zone check presentation. Risk scores/factors/history and hazard reporting remain planned. No frontend spatial intersection or risk calculations.
 
-## Event flow and reliability
+Weather assessment is synchronous and requested from the frontend on demand for a saved mission's current Polygon or LineString geometry. Hazard Service calls the public Open-Meteo Forecast API over HTTPS; it does not share Mission database tables or persist forecasts. Polygon sampling uses its interior point. Route sampling follows the full geodesic ground track at bounded intervals, subject to configured maximum length and number of samples. Forecast calculations and threshold comparison run only in Hazard Service. This is weather decision support, not an aviation briefing, aircraft-specific limit evaluation, risk score, safety determination, or flight clearance. The UI exposes provider, retrieval time, horizon, thresholds, warnings, partial data, and limitations.
+
+## Future event flow and reliability
 
 Hazard Service validates and persists, then publishes a v1 JSON `HazardReported` event to `hazard-events`, keyed by hazard UUID. Event has stable UUID `eventId` and `schemaVersion`. Mission validates, updates its projection, finds affected missions, recalculates, appends snapshots, and records processed identity atomically with effects.
 
@@ -58,7 +61,7 @@ DB commit and Kafka publication are not atomic by default. Prefer a Hazard-owned
 
 Provisional production candidates (not approved/provisioned): Neon Free PostgreSQL 17; Aiven Kafka Free with compatible Kafka protocol/TLS/auth; one OCI Always Free Ampere A1 host for both Spring services; Vercel Hobby for static frontend. The separate existing development database is Neon PostgreSQL 18.6 with PostGIS verified. S3 is deferred for the MVP. No production resource identifiers, credentials, or selected regions are recorded. See `docs/CLOUD_PROVIDER_COMPARISON.md` for quotas/prices and caveats.
 
-Required runtime configuration names are listed in `infra/.env.example`: database JDBC URL/user/password; Kafka bootstrap servers and security protocol/SASL settings; allowed frontend CORS origin; optional AWS region/evidence bucket if S3 is later approved; and public Vite API base URLs. Actual property mapping will be checked against Spring Boot and selected providers when services are implemented. Database/Kafka credentials belong in the cloud host's secret manager. Prefer workload identity/role for AWS rather than static access keys. `VITE_*` values are bundled into browser assets and must contain public URLs only, never secrets.
+Required runtime configuration names are listed in `infra/.env.example`: Mission database JDBC URL/user/password; future Kafka bootstrap/security settings; allowed frontend CORS origin; weather endpoint/timeouts, route limits and general thresholds; optional AWS region/evidence bucket if S3 is later approved; and public Vite API base URLs. Hazard Service currently requires no database, Kafka, or provider credential. Database/Kafka credentials belong in the cloud host's secret manager. Prefer workload identity/role for AWS rather than static access keys. `VITE_*` values are bundled into browser assets and must contain public URLs only, never secrets.
 
 Network requirements: services need outbound reachability to PostgreSQL and Kafka endpoints using provider-required ports and TLS; Hazard Service needs scoped S3 API access only if attachments are later enabled; Vercel users need HTTPS access to the API host. The provisional free stack assumes public TLS endpoints, not provider peering. Neon Free has no IP Allow or private networking; the database endpoint is publicly reachable and relies on TLS identity validation, strong credentials, and least-privilege roles. Aiven IP filter availability on Free must be verified. Do not use real sensitive data on this candidate. Configure CORS only for actual Vercel origin. Verify DNS, egress restrictions, TLS certificates, connection limits/pooling and idle timeout behavior.
 

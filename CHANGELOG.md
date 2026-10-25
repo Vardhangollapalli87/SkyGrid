@@ -1,5 +1,24 @@
 # Changelog
 
+## Production route schema recovery guidance (2026-10-25)
+
+- Documented the exact nullable PostGIS LineString column needed for the confirmed Neon schema mismatch, with read-only preflight and post-migration checks, existing-row preservation notes, and a safe manual rollout.
+- Clarified that the full spatial schema script includes unrelated airspace importer/inventory changes and must not be blindly reapplied. No database connection or SQL execution was performed.
+
+## End-to-end readiness corrections (2026-10-25)
+
+- Added Mission Service exact-origin CORS allowlisting through `CORS_ALLOWED_ORIGINS` after inspection found no Mission CORS configuration; added positive and negative preflight tests.
+- Corrected deployment variable names and provider status documentation. No provider is deployed; OCI/Vercel remain provisional candidates. Updated production schema instructions for nullable mission Polygon/LineString columns and restriction geometry.
+- Redacted mission/weather DTO string representations after local DEBUG logs showed geometry-bearing records in framework diagnostics.
+- Live read-only checks found the current Neon schema lacks `missions.route`; no automatic update or SQL was run. A saved Polygon weather request through Hazard Service returned a live Open-Meteo assessment.
+
+## Hazard Service weather assessment (2026-10-25)
+
+- Added the separate Spring Boot Hazard Service with a stateless, on-demand Open-Meteo hourly forecast assessment API for Point, Polygon, and bounded LineString route geometries.
+- Added WGS84 coordinate/topology checks, representative Polygon sampling, full-route geodesic sampling, bounded provider timeouts/retries, partial-data handling, configurable planning thresholds, and explicit limitations. No forecast persistence, Kafka, database, S3, or mission-risk scoring was added.
+- Integrated an on-demand weather panel for selected saved missions, including loading/error/stale/partial/complete states, provider metadata, route samples, field ranges, warnings and limitations. Added Vite local proxy and public frontend base-URL configuration.
+- Added mock provider/API and frontend state tests. Live Open-Meteo connectivity and deployed host/network/browser checks remain unverified.
+
 ## Waypoint and flight route planning (2026-10-25)
 
 - Added a separate nullable PostGIS `geometry(LineString,4326)` route property beside existing Polygon geometry; added route validation and response conversion, mission `PUT` replacement, and an additive production schema statement.

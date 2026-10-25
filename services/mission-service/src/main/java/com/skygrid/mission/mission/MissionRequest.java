@@ -24,4 +24,9 @@ public record MissionRequest(
     public MissionRequest(String name, String description, JsonNode geometry) {
         this(name, description, geometry, null);
     }
+
+    @Override
+    public String toString() {
+        return "MissionRequest[fields redacted]";
+    }
 }

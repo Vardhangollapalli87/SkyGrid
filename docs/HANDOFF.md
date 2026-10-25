@@ -1,6 +1,6 @@
 # SkyGrid handoff
 
-**Current state:** Mission Service CRUD/PostGIS geospatial foundation and the React/Vite mission workspace are implemented. Hazard Service, risk scoring, Kafka flow, authentication, and production deployment remain future work. The fixed two-service architecture and five-day MVP target remain in effect.
+**Current state:** Mission Service CRUD/PostGIS geospatial foundation and the React/Vite mission workspace are implemented. Hazard Service now provides stateless on-demand weather assessment from Open-Meteo for point, Polygon, and route geometries, with a frontend assessment panel. Hazard report persistence, risk scoring, Kafka flow, authentication, and production deployment remain future work. The fixed two-service architecture and five-day MVP target remain in effect.
 
 ## Verified Mission Service
 
@@ -55,6 +55,14 @@ The Neon instance used for local development exists and was verified for this wo
 - The map supports numbered draggable waypoints, ordered list selection/reordering/deletion, bounded undo, approximate geodesic ground-track summary, saved route reopening/editing, confirmed route deletion, and RFC 7946 LineString export. Polygon planning/export remains separate and unchanged. Route-based airspace corridor checks are not implemented.
 - Neon-backed integration was not run for this implementation; manual desktop/mobile browser interaction and production schema application/verification remain outstanding.
 
+### Hazard Service weather assessment
+
+- Added a separate Spring Boot 3.5.16 / Java 25 Hazard Service with `POST /api/v1/hazards/weather-assessment`. The service accepts Point, Polygon, or LineString geometry and optional bounded forecast horizon; it uses an interior representative point for polygons and deterministic geodesic samples along a complete route.
+- Open-Meteo hourly forecast is retrieved on demand over HTTPS. The endpoint is stateless and makes no database, Kafka, S3, or other-service calls. Values include temperature, 10 m wind and gust, and precipitation; missing values are null and produce PARTIAL status. General thresholds and route/timeout limits are environment configurable. Upstream rate-limit, server, and network errors have bounded retries.
+- The Mission workspace requests weather only when the user selects the action. It displays provider and retrieval metadata, UTC forecast horizon, route samples, ranges, configured thresholds, warning values/times, partial/error/stale states, and explicit limits. The app never turns weather into a risk score, readiness estimate, aircraft-specific limit, or clearance.
+- Vite proxies `/hazard-api/*` to local port 8082. For deployment, set `VITE_HAZARD_API_BASE_URL` to the public Hazard Service origin and configure its `CORS_ALLOWED_ORIGINS` for the frontend. Hazard Service requires outbound HTTPS/DNS to Open-Meteo and no credential for the configured forecast endpoint. See `services/hazard-service/README.md` and `infra/.env.example`.
+- Provider HTTP behavior is covered by mocks; live weather-provider connectivity and deployed-host egress/CORS were not tested. Manual browser and small-screen interaction checks remain outstanding.
+
 ## Next work
 
 ### Real airspace snapshot milestone
@@ -63,5 +71,14 @@ The opt-in local snapshot importer now parses the retained snapshots and commits
 
 1. Keep production schema validation; apply the checked-in additive schema SQL to the production schema before deploying this version.
 2. Start Mission Service, run the frontend against its Vite `/api` proxy, and inspect desktop/mobile layouts in a browser. For deployment, set `VITE_API_BASE_URL` and configure Mission Service CORS for the actual frontend origin.
-3. Before Phase 3, verify the selected Kafka service and hosting/network assumptions. Do not silently start Hazard Service or risk scoring without owner authorization.
+3. Before enabling future hazard reporting or risk scoring, verify selected Kafka service and hosting/network assumptions. The implemented weather-only Hazard Service does not use Kafka.
 4. Later provide a controlled way to load clearly labeled synthetic or approved restriction data; this phase intentionally does not seed database zones or add an import API.
+
+### End-to-end deployment readiness check (2026-10-25)
+
+- No deployment manifests or live public service/frontend URLs are present. OCI/A1 and Vercel Hobby are provisional provider candidates only; no provider is configured or deployed. The shared environment template now matches current service settings: Mission uses `SPRING_PROFILES_ACTIVE`, `DATABASE_URL`, `SPRING_JPA_HIBERNATE_DDL_AUTO`, host `PORT`, and `CORS_ALLOWED_ORIGINS`; Hazard uses host `PORT`, configurable `WEATHER_*` values, `OPEN_METEO_BASE_URL`, and the same exact-origin CORS variable. Kafka variables are marked future-only. `VITE_API_BASE_URL` and `VITE_HAZARD_API_BASE_URL` are public frontend origins; blank values use Vite's local proxies.
+- Mission CORS was absent from the runtime configuration. Added an exact-origin `CORS_ALLOWED_ORIGINS` filter (local default `http://localhost:5173`) with API-only GET/POST/PUT/OPTIONS methods and no credentials. Unit preflight tests pass for an allowed origin and reject an unlisted origin.
+- Read-only Neon inspection confirmed `missions.geometry` exists and is nullable, `restricted_zones.geometry` exists and is non-null, but `missions.route` is absent. Mission startup with Hibernate `validate` connected to Neon and stopped with `Schema-validation: missing column [route] in table [missions]`. No automatic schema update or SQL migration was run. Do not start the service with local `ddl-auto=update` to hide this discrepancy. The checked-in additive schema script contains the route column prerequisite along with the restricted-zone and existing airspace-import tables/indexes; apply it only after reviewing the target database and planned deployment.
+- The minimal recovery for that observed mismatch is the manually reviewed nullable `ALTER TABLE missions ADD COLUMN IF NOT EXISTS route geometry(LineString,4326)`. `services/mission-service/README.md` now provides PostGIS/schema preflight queries, pre/post row-count checks, and a safe manual rollout. The full SQL script includes unrelated importer/inventory DDL plus an `UPDATE` and `SET NOT NULL`, so it should not be blindly replayed on an established database. Only `route` was confirmed missing; remaining mapped-schema compatibility is unverified pending preflight and Hibernate validation after migration.
+- Hazard Service starts locally, `/actuator/health` returns UP, local CORS preflight succeeds, and one real Open-Meteo Polygon forecast returned HTTP 200 using a saved mission geometry read-only from Neon. Mission-to-Hazard browser flow was not tested because Mission Service cannot start against the current schema. Route assessment against saved routes was likewise blocked by the missing `missions.route` column.
+- The current UI/API has no Mission DELETE endpoint and no saved Polygon edit/delete UI. Route deletion is implemented as a Mission PUT that clears route geometry. These polygon workflows were not exercised, and no feature was added to this verification task. Browser-level layout, exports, loading/error states, and stale-response behavior still need manual/browser automation checks.

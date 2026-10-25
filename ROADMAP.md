@@ -22,9 +22,11 @@ Spring Boot 3.5.16 / Java 25 Mission Service supports validated mission creation
 
 Verify the selected managed Kafka service, TLS/auth, region and idle behavior. Implement the Hazard Service, versioned events, consumer deduplication/retries, and Mission Service hazard projection only when this phase is approved. Risk scoring/history must follow the fixed Mission Service ownership.
 
+**Completed increment:** the separate Hazard Service now exposes stateless on-demand Open-Meteo forecast assessments for points, mission polygons, and bounded route samples. The frontend has an on-demand weather panel for saved missions. This does not implement hazard reports, persistence, Kafka events, mission risk scoring, or assessment history; those remain future work. See `services/hazard-service/README.md`.
+
 ## Phase 4 — Frontend (implemented)
 
-**Implemented:** React/TypeScript/Vite/Leaflet workspace with responsive mission list/details, GeoJSON polygon drawing and draggable vertices, validation, mission creation, saved geometry rendering, and backend restricted-zone checks. The API client has timeout/cancellation, bounded retry for safe GETs, and no POST retry. UI labels the zone-data completeness limitation and never claims flight safety/clearance. See `docs/HANDOFF.md` for verification and remaining browser/API constraints.
+**Implemented:** React/TypeScript/Vite/Leaflet workspace with responsive mission list/details, GeoJSON polygon drawing and draggable vertices, validation, mission creation, saved geometry rendering, backend restricted-zone checks, ordered route planning, GeoJSON exports, and on-demand weather assessments via Hazard Service. The API client has timeout/cancellation, bounded retry for safe GETs, and no POST retry. UI labels dataset and forecast limitations and never claims flight safety/clearance. See `docs/HANDOFF.md` for verification and remaining browser/API constraints.
 
 ## Phase 5 — Deployment and security (future)
 

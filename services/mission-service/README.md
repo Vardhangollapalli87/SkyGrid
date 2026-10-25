@@ -29,9 +29,9 @@ mvn -Dspring-boot.run.profiles=local spring-boot:run
 
 I exercised `Read-Host -AsSecureString` followed by `PtrToStringBSTR` using a synthetic URI in Windows PowerShell. It round-tripped as a valid absolute PostgreSQL URI. The failed startup log proves only that its nonblank value had an unrecognized scheme; it does not prove the PowerShell conversion caused that result. Safe diagnostics now include length, first code point, delimiter presence, and detected scheme without exposing text. The local profile bypasses URI parsing entirely.
 
-## Render
+## Production container host (provider not selected)
 
-In the Mission Service Render service's Environment settings, set `SPRING_PROFILES_ACTIVE=production` and add `DATABASE_URL` with the provider-issued URI in the protected value field. Do not put it in `render.yaml`, source files, build commands, or logs. Render supplies `PORT`; the application already binds to `${PORT}` and falls back to `8081` for local runs.
+No Mission Service deployment or public host has been configured. The current provider comparison lists OCI as a provisional backend-host candidate; Vercel is a provisional frontend candidate. Do not treat Render-specific configuration as selected. On the chosen container host, set `SPRING_PROFILES_ACTIVE=production`, `DATABASE_URL` using the provider-issued PostgreSQL URI in protected environment settings, `SPRING_JPA_HIBERNATE_DDL_AUTO=validate`, the host-supplied `PORT`, and `CORS_ALLOWED_ORIGINS` to the exact deployed frontend origin. The service binds to `${PORT}` and falls back to `8081` locally; local CORS defaults to `http://localhost:5173`. `GET /actuator/health` is the minimal health check and includes database connectivity status. Keep the real URI in host-managed secret storage; do not put it in build files, source, or logs.
 
 The development profile uses Hibernate `update`; the production profile uses `validate`. The local profile connected to the existing Neon PostgreSQL 18.6 database, where PostGIS and a real SRID/intersection query were verified on 2026-10-25. No credentials are recorded here.
 
@@ -60,7 +60,64 @@ With local/development Hibernate `update`, startup adds nullable `geometry geome
 
 Routes use a separate GeoJSON `route` property and LineString column; they never change the meaning of the existing Polygon `geometry`. `POST /api/v1/missions` creates a route mission. `PUT /api/v1/missions/{id}` replaces the mission's geometry representation and metadata, so callers must send the complete desired representation. Route positions are ordered longitude/latitude pairs, require at least two distinct consecutive positions, and are bounded to WGS84. Production must apply the additive `route` column statement in `db/production-spatial-schema.sql` before deploying this version.
 
-Production Hibernate remains `validate`. Before production startup, manually run [`db/production-spatial-schema.sql`](db/production-spatial-schema.sql) against the Mission Service schema after PostGIS has already been enabled. The SQL is additive; review the target schema and backup policy before applying it.
+Production Hibernate remains `validate`. Before production startup, manually run [`db/production-spatial-schema.sql`](db/production-spatial-schema.sql) against the Mission Service schema after PostGIS has already been enabled. The script adds nullable `missions.geometry geometry(Polygon,4326)` and `missions.route geometry(LineString,4326)`, creates `restricted_zones` with non-null Polygon geometry and its GiST index, and adds the `airspace_features`, `airspace_dataset_imports`, and `airspace_import_batches` tables/indexes/columns used by the existing importer. It does not run `CREATE EXTENSION` and does not seed airspace rows. Review target schema and backup policy before applying it; do not apply automatically.
+
+### Production route-column recovery (manual)
+
+The 2026-10-25 read-only startup check connected to Neon and found `missions.geometry` present and nullable, `restricted_zones.geometry` present and non-null, but `missions.route` absent. Hibernate production validation therefore fails on `route`. That inspection did not establish that every other mapped column in every production table matches the current entities; run the preflight below against the intended schema and treat any mismatch separately.
+
+PostGIS must already be installed/enabled in the target database. Check it and the relevant existing columns first:
+
+```sql
+SELECT extname, extversion
+FROM pg_extension
+WHERE extname = 'postgis';
+
+SELECT table_name, column_name, data_type, udt_name, is_nullable
+FROM information_schema.columns
+WHERE table_schema = current_schema()
+  AND ((table_name = 'missions' AND column_name IN ('geometry', 'route'))
+       OR (table_name = 'restricted_zones' AND column_name = 'geometry'))
+ORDER BY table_name, column_name;
+
+SELECT count(*) AS mission_rows,
+       count(*) FILTER (WHERE geometry IS NOT NULL) AS polygon_rows
+FROM missions;
+```
+
+For the reported state, the minimal migration is only this nullable additive column. Review the target schema and take the normal database backup before applying:
+
+```sql
+ALTER TABLE missions
+    ADD COLUMN IF NOT EXISTS route geometry(LineString, 4326);
+```
+
+This does not rewrite or remove mission IDs, names, timestamps, descriptions, or existing Polygon values. Existing rows receive `NULL` for `route`, preserving polygon meaning and behavior. Do not add a default, make the column non-null, or convert Polygon values into routes.
+
+After applying, verify the column's PostGIS type/SRID/nullability and compare row totals with the preflight result:
+
+```sql
+SELECT f_geometry_column, type, srid, coord_dimension
+FROM public.geometry_columns
+WHERE f_table_schema = current_schema()
+  AND f_table_name = 'missions'
+  AND f_geometry_column = 'route';
+
+SELECT column_name, is_nullable, udt_name
+FROM information_schema.columns
+WHERE table_schema = current_schema()
+  AND table_name = 'missions'
+  AND column_name = 'route';
+
+SELECT count(*) AS mission_rows,
+       count(*) FILTER (WHERE geometry IS NOT NULL) AS polygon_rows,
+       count(*) FILTER (WHERE route IS NOT NULL) AS route_rows
+FROM missions;
+```
+
+Expected route metadata is `LINESTRING`, SRID `4326`, nullable `YES`; existing mission and polygon counts should equal the recorded pre-migration values. Existing route count should be zero unless routes were already stored. Then start with the production profile and `SPRING_JPA_HIBERNATE_DDL_AUTO=validate`, confirm `/actuator/health`, and perform a controlled route create/read/update verification before considering production readiness. Route removal is represented by updating the mission with no route; there is no mission DELETE endpoint.
+
+The mapped production tables must have these columns and compatible types: `missions` (`id` UUID, `name` varchar(120), nullable `description` varchar(1000), `created_at` timestamptz, nullable Polygon geometry, nullable LineString route); `restricted_zones` (`id` UUID, `name` varchar(120), non-null Polygon geometry, `demonstration` boolean); and `airspace_features` (UUID `id`, text identity fields, country/category, optional name/classification/geometry/source text/effective timestamp/last-seen attempt, JSONB source properties, geometry status, and non-null imported/last-attempt timestamps). The SQL script additionally supplies `airspace_dataset_imports` and `airspace_import_batches` for inventory/import endpoints; these are not entity tables checked by Hibernate but are required for those features. The previous live check confirmed only the named geometry columns and missing `route`; other schema compatibility remains unverified until preflight and successful Hibernate validation.
 
 ## Tests
 

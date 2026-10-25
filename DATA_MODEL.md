@@ -16,6 +16,8 @@ The existing development database is Neon PostgreSQL 18.6. PostGIS is enabled an
 
 ## Hazard schema — Hazard Service owns
 
+The implemented weather-assessment endpoint is stateless: it retrieves forecast values on demand and returns them in the HTTP response. No weather request, provider response, warning, or forecast cache is persisted. The tables below are still planned for future hazard-reporting work.
+
 | Table | Planned fields/purpose | Keys and constraints |
 |---|---|---|
 | `hazards` | `id uuid`, `type`, `severity`, `location geometry(Point,4326)`, `description`, `status`, `reported_at`, `updated_at timestamptz` | PK; bounds and enum constraints; GiST; demo source indication. |
