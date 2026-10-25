@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -39,6 +40,11 @@ public class MissionController {
     public ResponseEntity<MissionResponse> createMission(@Valid @RequestBody MissionRequest request) {
         MissionResponse created = missionService.createMission(request);
         return ResponseEntity.created(URI.create("/api/v1/missions/" + created.id())).body(created);
+    }
+
+    @PutMapping("/{id}")
+    public MissionResponse updateMission(@PathVariable UUID id, @Valid @RequestBody MissionRequest request) {
+        return missionService.updateMission(id, request);
     }
 
     @GetMapping("/{id}")

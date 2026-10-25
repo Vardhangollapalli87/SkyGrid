@@ -10,12 +10,15 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.jdbc.core.JdbcTemplate;
+import com.fasterxml.jackson.databind.JsonNode;
 
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -35,6 +38,9 @@ class MissionSpatialApiIntegrationTest {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     @Test
     void createsRetrievesAndChecksGeoJsonMissionThroughApi() throws Exception {
@@ -88,6 +94,54 @@ class MissionSpatialApiIntegrationTest {
         mockMvc.perform(get("/api/v1/missions/{id}/restricted-zone-check", missionId))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.title").value("Mission geometry required"));
+    }
+
+    @Test
+    void airspaceInventoryApiMatchesCommittedDatabaseRows() throws Exception {
+        var databaseRows = jdbcTemplate.query("""
+                select d.country_code,d.dataset_name,d.status,d.input_count,d.spatial_count,d.unconverted_count,
+                       d.rejected_count,d.duplicate_count,d.inserted_count,d.updated_count,d.skipped_count,
+                       d.non_spatial_count,d.failed_count,count(f.id) as stored_count,
+                       count(f.id) filter (where f.geometry is not null and f.geometry_status='VALID') as stored_spatial,
+                       count(f.id) filter (where f.geometry is null and f.geometry_status<>'INVALID_GEOMETRY') as stored_non_spatial,
+                       count(f.id) filter (where f.geometry_status='INVALID_GEOMETRY') as stored_invalid_geometry
+                  from airspace_dataset_imports d left join airspace_features f
+                    on f.country_code=d.country_code and f.source_name=d.source_name and f.dataset_name=d.dataset_name
+                 group by d.country_code,d.dataset_name,d.status,d.input_count,d.spatial_count,d.unconverted_count,
+                          d.rejected_count,d.duplicate_count,d.inserted_count,d.updated_count,d.skipped_count,
+                          d.non_spatial_count,d.failed_count
+                """, (rs, n) -> new Object[]{rs.getString("country_code"),rs.getString("dataset_name"),rs.getString("status"),
+                rs.getInt("input_count"),rs.getInt("spatial_count"),rs.getInt("non_spatial_count"),rs.getInt("rejected_count"),
+                rs.getInt("duplicate_count"),rs.getInt("inserted_count"),rs.getInt("updated_count"),rs.getInt("skipped_count"),
+                rs.getInt("non_spatial_count"),rs.getInt("failed_count"),rs.getLong("stored_count"),rs.getLong("stored_spatial"),
+                rs.getLong("stored_non_spatial"),rs.getLong("stored_invalid_geometry")});
+        JsonNode api = objectMapper.readTree(mockMvc.perform(get("/api/v1/airspace/datasets"))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        assertEquals(databaseRows.size(), api.size());
+        for (Object[] db : databaseRows) {
+            JsonNode row = java.util.stream.StreamSupport.stream(api.spliterator(), false)
+                    .filter(item -> item.path("country").asText().equals(db[0])
+                            && item.path("dataset").asText().equals(db[1])).findFirst().orElseThrow();
+            assertEquals(db[2], row.path("status").asText());
+            assertEquals(db[3], row.path("inputCount").asInt());
+            assertEquals(db[4], row.path("spatialFeatures").asInt());
+            assertEquals(db[5], row.path("unconvertedRecords").asInt());
+            assertEquals(db[6], row.path("rejectedCount").asInt());
+            assertEquals(db[7], row.path("duplicateCount").asInt());
+            assertEquals(db[8], row.path("insertedCount").asInt());
+            assertEquals(db[9], row.path("updatedCount").asInt());
+            assertEquals(db[10], row.path("skippedCount").asInt());
+            assertEquals(db[11], row.path("nonSpatialCount").asInt());
+            assertEquals(db[12], row.path("failedCount").asInt());
+            assertEquals(db[11], row.path("nonSpatialCount").asInt());
+            if ("SUCCESS".equals(db[2]) || "PARTIAL".equals(db[2])) {
+                assertEquals((int) db[3] - (int) db[7], ((Number) db[13]).intValue());
+                assertEquals(((Number) db[4]).intValue(), ((Number) db[14]).intValue());
+                assertEquals(((Number) db[11]).intValue(), ((Number) db[15]).intValue());
+                assertEquals((int) db[3] - ((Number) db[13]).intValue() - (int) db[7]
+                        + ((Number) db[16]).intValue(), (int) db[6]);
+            }
+        }
     }
 
     private static org.locationtech.jts.geom.Polygon polygon(double minX, double minY, double maxX, double maxY) {

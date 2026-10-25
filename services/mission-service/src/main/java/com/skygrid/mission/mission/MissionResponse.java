@@ -7,10 +7,15 @@ import java.time.Instant;
 import java.util.UUID;
 
 public record MissionResponse(UUID id, String name, String description, Instant createdAt,
-                              @JsonInclude(JsonInclude.Include.NON_NULL) JsonNode geometry) {
+                              @JsonInclude(JsonInclude.Include.NON_NULL) JsonNode geometry,
+                              @JsonInclude(JsonInclude.Include.NON_NULL) JsonNode route) {
 
     public MissionResponse(UUID id, String name, String description, Instant createdAt) {
-        this(id, name, description, createdAt, null);
+        this(id, name, description, createdAt, null, null);
+    }
+
+    public MissionResponse(UUID id, String name, String description, Instant createdAt, JsonNode geometry) {
+        this(id, name, description, createdAt, geometry, null);
     }
 
     static MissionResponse from(Mission mission) {
@@ -19,7 +24,8 @@ public record MissionResponse(UUID id, String name, String description, Instant 
                 mission.getName(),
                 mission.getDescription(),
                 mission.getCreatedAt(),
-                MissionGeometryCodec.toGeoJson(mission.getGeometry())
+                MissionGeometryCodec.toGeoJson(mission.getGeometry()),
+                MissionGeometryCodec.toGeoJson(mission.getRoute())
         );
     }
 }

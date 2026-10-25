@@ -56,7 +56,9 @@ Use `GET /api/v1/missions/{id}/restricted-zone-check` to evaluate the stored mis
 
 ## Schema update safety
 
-With local/development Hibernate `update`, startup adds a nullable `geometry geometry(Polygon,4326)` column to `missions`, creates the new `restricted_zones` table, and creates its GiST index idempotently. Existing mission rows and identifiers are not dropped or rewritten; their geometry stays null. The application does not enable PostGIS automatically.
+With local/development Hibernate `update`, startup adds nullable `geometry geometry(Polygon,4326)` and `route geometry(LineString,4326)` columns to `missions`, creates the new `restricted_zones` table, and creates its GiST index idempotently. Existing mission rows and identifiers are not dropped or rewritten; both geometries remain null for old records. The application does not enable PostGIS automatically.
+
+Routes use a separate GeoJSON `route` property and LineString column; they never change the meaning of the existing Polygon `geometry`. `POST /api/v1/missions` creates a route mission. `PUT /api/v1/missions/{id}` replaces the mission's geometry representation and metadata, so callers must send the complete desired representation. Route positions are ordered longitude/latitude pairs, require at least two distinct consecutive positions, and are bounded to WGS84. Production must apply the additive `route` column statement in `db/production-spatial-schema.sql` before deploying this version.
 
 Production Hibernate remains `validate`. Before production startup, manually run [`db/production-spatial-schema.sql`](db/production-spatial-schema.sql) against the Mission Service schema after PostGIS has already been enabled. The SQL is additive; review the target schema and backup policy before applying it.
 

@@ -6,6 +6,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import org.locationtech.jts.geom.Polygon;
+import org.locationtech.jts.geom.LineString;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -30,6 +31,9 @@ public class Mission {
     @Column(name = "geometry", columnDefinition = "geometry(Polygon,4326)")
     private Polygon geometry;
 
+    @Column(name = "route", columnDefinition = "geometry(LineString,4326)")
+    private LineString route;
+
     protected Mission() {
     }
 
@@ -38,11 +42,16 @@ public class Mission {
     }
 
     public Mission(UUID id, String name, String description, Instant createdAt, Polygon geometry) {
+        this(id, name, description, createdAt, geometry, null);
+    }
+
+    public Mission(UUID id, String name, String description, Instant createdAt, Polygon geometry, LineString route) {
         this.id = id;
         this.name = name;
         this.description = description;
         this.createdAt = createdAt;
         this.geometry = geometry;
+        this.route = route;
     }
 
     @PrePersist
@@ -73,5 +82,14 @@ public class Mission {
 
     public Polygon getGeometry() {
         return geometry;
+    }
+
+    public LineString getRoute() { return route; }
+
+    public void update(String name, String description, Polygon geometry, LineString route) {
+        this.name = name;
+        this.description = description;
+        this.geometry = geometry;
+        this.route = route;
     }
 }

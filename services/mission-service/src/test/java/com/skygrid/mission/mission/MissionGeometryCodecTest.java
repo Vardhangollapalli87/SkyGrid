@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.locationtech.jts.geom.Polygon;
+import org.locationtech.jts.geom.LineString;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -81,5 +82,29 @@ class MissionGeometryCodecTest {
 
         assertThrows(InvalidMissionGeometryException.class, () -> MissionGeometryCodec.parse(unclosed));
         assertThrows(InvalidMissionGeometryException.class, () -> MissionGeometryCodec.parse(empty));
+    }
+
+    @Test
+    void parsesAndSerializesOrderedRouteAsWgs84LineString() throws Exception {
+        JsonNode input = objectMapper.readTree("""
+                {"type":"LineString","coordinates":[[77.59,12.97],[77.60,12.97],[77.60,12.98]]}
+                """);
+        LineString route = MissionGeometryCodec.parseRoute(input);
+        JsonNode output = MissionGeometryCodec.toGeoJson(route);
+        assertEquals(4326, route.getSRID());
+        assertEquals("LineString", output.path("type").asText());
+        assertEquals(77.59, output.path("coordinates").path(0).path(0).asDouble());
+        assertEquals(12.97, output.path("coordinates").path(0).path(1).asDouble());
+        assertTrue(MissionGeometryCodec.parseRoute(output).equalsExact(route));
+    }
+
+    @Test
+    void rejectsInsufficientInvalidAndDuplicateRouteWaypoints() throws Exception {
+        JsonNode shortRoute = objectMapper.readTree("{\"type\":\"LineString\",\"coordinates\":[[0,0]]}");
+        JsonNode outOfRange = objectMapper.readTree("{\"type\":\"LineString\",\"coordinates\":[[181,0],[0,1]]}");
+        JsonNode duplicate = objectMapper.readTree("{\"type\":\"LineString\",\"coordinates\":[[0,0],[0,0]]}");
+        assertThrows(InvalidMissionGeometryException.class, () -> MissionGeometryCodec.parseRoute(shortRoute));
+        assertThrows(InvalidMissionGeometryException.class, () -> MissionGeometryCodec.parseRoute(outOfRange));
+        assertThrows(InvalidMissionGeometryException.class, () -> MissionGeometryCodec.parseRoute(duplicate));
     }
 }

@@ -1,6 +1,6 @@
 # UI design specification (implemented baseline)
 
-The Mission API accepts GeoJSON mission polygons and returns stored restricted-zone intersection results. The current frontend implements the mission workspace, map-based polygon planning, CRUD display, and restricted-zone check. It displays backend results without calculating intersections. The current API cannot distinguish an empty zone dataset from a complete negative query; the UI calls this out. SkyGrid is a prototype decision-support tool, not an aviation authority UI. Label restrictions/hazards as demonstration data and never imply clearance or a safety guarantee.
+The Mission API accepts GeoJSON mission polygons and LineString routes and returns stored restricted-zone intersection results for polygons. The current frontend implements mission workspace, polygon planning, ordered waypoint route editing, CRUD display, and restricted-zone check. Selected missions show saved state, geometry validity, spherical geodesic area/perimeter estimates, API-backed dataset coverage limitations, and check result/time. Polygon and route exports are GeoJSON. Route distance is only an estimated geodesic ground track. It displays backend results without calculating intersections. The current API cannot distinguish an empty zone dataset from a complete negative query; the UI calls this out. SkyGrid is a prototype decision-support tool, not an aviation authority UI. Label restrictions/hazards as demonstration data and never imply clearance or a safety guarantee.
 
 ## Visual system
 

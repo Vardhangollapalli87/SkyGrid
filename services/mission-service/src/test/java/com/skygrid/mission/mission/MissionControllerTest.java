@@ -21,6 +21,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -147,6 +148,22 @@ class MissionControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.geometry.type").value("Polygon"))
                 .andExpect(jsonPath("$.geometry.coordinates[0][0][0]").value(77.59));
+    }
+
+    @Test
+    void updatesMissionRouteWithoutChangingPolygonContract() throws Exception {
+        UUID id = UUID.randomUUID();
+        com.fasterxml.jackson.databind.JsonNode route = new com.fasterxml.jackson.databind.ObjectMapper().readTree(
+                "{\"type\":\"LineString\",\"coordinates\":[[77.59,12.97],[77.60,12.97]]}");
+        when(missionService.updateMission(org.mockito.ArgumentMatchers.eq(id), any(MissionRequest.class)))
+                .thenReturn(new MissionResponse(id, "Route", null, Instant.parse("2026-01-01T00:00:00Z"), null, route));
+
+        mockMvc.perform(put("/api/v1/missions/{id}", id).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Route\",\"route\":{\"type\":\"LineString\",\"coordinates\":[[77.59,12.97],[77.60,12.97]]}}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.route.type").value("LineString"))
+                .andExpect(jsonPath("$.route.coordinates[0][0]").value(77.59))
+                .andExpect(jsonPath("$.geometry").doesNotExist());
     }
 
     @Test

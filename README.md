@@ -4,7 +4,7 @@ SkyGrid is a decision-support prototype for assessing proposed drone mission are
 
 ## Project status
 
-The Mission Service supports mission CRUD, validated GeoJSON Polygon storage in PostGIS, and a restricted-zone intersection check. The React/Vite frontend now provides a map-first mission workspace for listing, drawing, validating, saving, and inspecting missions. Risk scoring, Hazard Service, Kafka, authentication, and deployment remain unimplemented. The zone-check API cannot establish whether its restricted-zone dataset is complete or populated; the frontend reports that limitation and never describes a mission as safe or cleared. See [docs/HANDOFF.md](docs/HANDOFF.md).
+The Mission Service supports mission CRUD, validated GeoJSON Polygon and LineString route storage in PostGIS, and polygon restricted-zone intersection checks. The React/Vite frontend provides a map-first mission workspace for listing, drawing, validating, saving, editing ordered routes, and exporting Polygon/LineString GeoJSON. Route distance is an estimated ground-track value only. Risk scoring, Hazard Service, Kafka, authentication, and deployment remain unimplemented. The zone-check API cannot establish whether its restricted-zone dataset is complete or populated; the frontend reports that limitation and never describes a mission as safe or cleared. See [docs/HANDOFF.md](docs/HANDOFF.md).
 
 ## Approved development workflow
 
@@ -12,6 +12,7 @@ The Mission Service supports mission CRUD, validated GeoJSON Polygon storage in 
 - Use Java 25 and Spring Boot 3.5.16 for the Mission Service. Its Maven tests and package build are verified locally.
 - Do not install/configure local PostgreSQL, PostGIS, Kafka, Docker, or Compose. Do not change Windows system settings for this project.
 - The existing local profile connects to Neon PostgreSQL 18.6 with PostGIS enabled and spatial queries verified. Kafka and deployment providers remain subject to the documented provider decision and verification requirements.
+- The Mission Service includes an opt-in, bounded-batch, repeat-safe snapshot importer and viewport-based airspace API for the supplied FAA national-security GeoJSON, Netherlands ED-269 polygons, and retained India AIP ENR 5.1/5.2 source documents. Import execution against Neon remains unverified after an intermittent connection reset; coverage remains partial and unverified. See `docs/AIRSPACE_DATA_IMPORT.md`.
 - Use AWS S3 for private evidence attachments. Use workload identity/role on the service host where available; never put AWS credentials in the browser or source.
 - Introduce Docker only during deployment preparation. Provisional host research recommends one OCI Always Free A1 VM for both separate Spring services and Vercel Hobby for the frontend. This is not approved or provisioned; verify region, Java 25/ARM64 compatibility, connectivity, limits, and pricing first.
 
@@ -59,4 +60,4 @@ Run frontend checks from `frontend/` with `npm test`, `npm run lint`, and `npm r
 
 ## Application status
 
-The Mission Service is implemented through the geospatial foundation phase. The frontend implements mission listing/selection, polygon planning/editing, geometry validation, save, and restricted-zone checks. It does not fabricate missions, zone geometries, aviation datasets, or operational status. The restricted-zone API cannot distinguish an empty zone dataset from a completed negative check, so the frontend explicitly labels negative results as “No intersection in returned dataset” and says dataset completeness is unknown. Hazard reporting, risk assessments/history, Kafka, and deployment URLs do not exist yet.
+The Mission Service and frontend include backward-compatible Polygon missions plus separately stored LineString waypoint routes with route editing and export. The route planner does not estimate duration, battery, altitude, speed, obstacle avoidance, or clearance. The restricted-zone API cannot distinguish an empty zone dataset from a completed negative check, so the frontend explicitly labels negative results as “No intersection in returned dataset” and says dataset completeness is unknown. Hazard reporting, risk assessments/history, Kafka, and deployment URLs do not exist yet.

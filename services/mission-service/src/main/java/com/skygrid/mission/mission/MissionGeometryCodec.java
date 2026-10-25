@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.LinearRing;
+import org.locationtech.jts.geom.LineString;
 import org.locationtech.jts.geom.Polygon;
 import org.locationtech.jts.geom.PrecisionModel;
 import org.locationtech.jts.operation.valid.IsValidOp;
@@ -68,6 +69,33 @@ final class MissionGeometryCodec {
         return polygon;
     }
 
+    static LineString parseRoute(JsonNode route) {
+        if (route == null || route.isNull()) return null;
+        if (!route.isObject() || !"LineString".equals(route.path("type").asText()))
+            throw invalid("Route must be a GeoJSON LineString.");
+        JsonNode coordinates = route.get("coordinates");
+        if (coordinates == null || !coordinates.isArray() || coordinates.size() < 2 || coordinates.size() > MAX_POSITIONS)
+            throw invalid("A route must contain between two and 10,000 ordered waypoints.");
+        Coordinate[] points = new Coordinate[coordinates.size()];
+        for (int index = 0; index < coordinates.size(); index++) {
+            JsonNode position = coordinates.get(index);
+            if (!position.isArray() || position.size() != 2 || !position.get(0).isNumber() || !position.get(1).isNumber())
+                throw invalid("Each route waypoint must contain exactly longitude and latitude numbers.");
+            double longitude = position.get(0).doubleValue(), latitude = position.get(1).doubleValue();
+            if (!Double.isFinite(longitude) || longitude < -180 || longitude > 180)
+                throw invalid("Route longitude must be between -180 and 180.");
+            if (!Double.isFinite(latitude) || latitude < -90 || latitude > 90)
+                throw invalid("Route latitude must be between -90 and 90.");
+            points[index] = new Coordinate(longitude, latitude);
+            if (index > 0 && points[index].equals2D(points[index - 1]))
+                throw invalid("Consecutive route waypoints must not be identical.");
+        }
+        LineString line = GEOMETRY_FACTORY.createLineString(points);
+        if (line.isEmpty() || line.getLength() == 0) throw invalid("Route length must be greater than zero.");
+        line.setSRID(SRID);
+        return line;
+    }
+
     static JsonNode toGeoJson(Polygon polygon) {
         if (polygon == null) {
             return null;
@@ -79,6 +107,14 @@ final class MissionGeometryCodec {
         for (int index = 0; index < polygon.getNumInteriorRing(); index++) {
             appendRing(polygonCoordinates, polygon.getInteriorRingN(index).getCoordinates());
         }
+        return result;
+    }
+
+    static JsonNode toGeoJson(LineString route) {
+        if (route == null) return null;
+        ObjectNode result = JsonNodeFactory.instance.objectNode(); result.put("type", "LineString");
+        ArrayNode coordinates = result.putArray("coordinates");
+        for (Coordinate point : route.getCoordinates()) coordinates.addArray().add(point.x).add(point.y);
         return result;
     }
 

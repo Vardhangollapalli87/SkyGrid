@@ -30,6 +30,9 @@ class MissionServiceTest {
     @Mock
     private RestrictedZoneRepository restrictedZoneRepository;
 
+    @Mock
+    private AirspaceFeatureRepository airspaceFeatureRepository;
+
     @InjectMocks
     private MissionService missionService;
 
@@ -75,6 +78,21 @@ class MissionServiceTest {
         when(missionRepository.findById(id)).thenReturn(Optional.empty());
 
         assertThrows(MissionNotFoundException.class, () -> missionService.getMission(id));
+    }
+
+    @Test
+    void createsAndUpdatesPersistedLineStringRoute() throws Exception {
+        var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        var route = mapper.readTree("{\"type\":\"LineString\",\"coordinates\":[[77.59,12.97],[77.60,12.97]]}");
+        when(missionRepository.save(any(Mission.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        MissionResponse created = missionService.createMission(new MissionRequest("Route", null, null, route));
+        assertEquals("LineString", created.route().path("type").asText());
+        when(missionRepository.findById(created.id())).thenAnswer(invocation -> Optional.of(missionRepository.save(
+                new Mission(created.id(), "Route", null, Instant.now(), null, MissionGeometryCodec.parseRoute(route)))));
+
+        MissionResponse updated = missionService.updateMission(created.id(), new MissionRequest("Edited route", null, null, route));
+        assertEquals("Edited route", updated.name());
+        assertEquals(77.60, updated.route().path("coordinates").path(1).path(0).asDouble());
     }
 
     @Test

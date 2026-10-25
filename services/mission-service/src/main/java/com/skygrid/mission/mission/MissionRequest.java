@@ -12,10 +12,16 @@ public record MissionRequest(
         @Size(max = 1000, message = "Description must be at most 1000 characters")
         String description,
 
-        JsonNode geometry
+        JsonNode geometry,
+
+        JsonNode route
 ) {
 
     public MissionRequest(String name, String description) {
-        this(name, description, null);
+        this(name, description, null, null);
+    }
+
+    public MissionRequest(String name, String description, JsonNode geometry) {
+        this(name, description, geometry, null);
     }
 }

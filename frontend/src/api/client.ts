@@ -1,8 +1,12 @@
 import type { PolygonGeometry } from '../domain/geometry'
 
-export type Mission = { id: string; name: string; description: string | null; createdAt: string; geometry?: PolygonGeometry | null }
+export type RouteGeometry = { type: 'LineString'; coordinates: [number, number][] }
+export type Mission = { id: string; name: string; description: string | null; createdAt: string; geometry?: PolygonGeometry | null; route?: RouteGeometry | null }
 export type MissionPage = { content: Mission[]; page: number; size: number; totalElements: number; totalPages: number }
 export type ZoneCheck = { missionId: string; intersects: boolean; message: string; dataNotice: string; zones: { id: string; name: string; demonstration: boolean }[] }
+export type AirspaceProperties = { sourceId: string; name: string; source: string; country: string; dataset: string; category: string; classification: string; sourceProperties: Record<string, unknown>; geometryStatus: string; effectiveAt: string; importedAt: string }
+export type AirspaceFeatureCollection = { type: 'FeatureCollection'; features: { type: 'Feature'; id: string; geometry: GeoJSON.Geometry; properties: AirspaceProperties }[]; truncated: boolean }
+export type AirspaceDataset = { country: string; source: string; dataset: string; category: string; spatialFeatures: number; unconvertedRecords: number; inputCount: number; rejectedCount: number; duplicateCount: number; insertedCount: number; updatedCount: number; skippedCount: number; nonSpatialCount: number; failedCount: number; lastImportAt: string | null; lastAttemptAt: string | null; coverageVerified: boolean; limitations: string; status: string; sourceUrl: string | null; sourceEffectiveAt: string | null; freshnessStatus: 'NOT_EVALUATED' | string }
 export class ApiError extends Error {
   constructor(message: string, readonly kind: 'validation' | 'network' | 'timeout' | 'server' | 'not-found', readonly status?: number) { super(message); this.name = 'ApiError' }
 }
@@ -34,7 +38,10 @@ const delay = (ms: number) => new Promise(resolve => window.setTimeout(resolve, 
 
 export const missionApi = {
   list: (page = 0, size = 20, signal?: AbortSignal) => request<MissionPage>(`/api/v1/missions?page=${page}&size=${size}`, { signal }),
-  create: (input: { name: string; description?: string; geometry: PolygonGeometry }) => request<Mission>('/api/v1/missions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) }, false),
+  create: (input: { name: string; description?: string; geometry?: PolygonGeometry; route?: RouteGeometry }) => request<Mission>('/api/v1/missions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) }, false),
+  update: (id: string, input: { name: string; description?: string; geometry?: PolygonGeometry; route?: RouteGeometry }) => request<Mission>(`/api/v1/missions/${encodeURIComponent(id)}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) }, false),
   get: (id: string, signal?: AbortSignal) => request<Mission>(`/api/v1/missions/${encodeURIComponent(id)}`, { signal }),
   check: (id: string, signal?: AbortSignal) => request<ZoneCheck>(`/api/v1/missions/${encodeURIComponent(id)}/restricted-zone-check`, { signal }),
+  airspace: (bounds: { west: number; south: number; east: number; north: number }, signal?: AbortSignal) => request<AirspaceFeatureCollection>(`/api/v1/airspace/features?${new URLSearchParams(Object.entries(bounds).map(([k, v]) => [k, String(v)]))}`, { signal }),
+  airspaceDatasets: (signal?: AbortSignal) => request<AirspaceDataset[]>('/api/v1/airspace/datasets', { signal }),
 }

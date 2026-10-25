@@ -41,7 +41,25 @@ The Neon instance used for local development exists and was verified for this wo
 - No browser automation or responsive viewport inspection was available in this implementation run. The local Mission Service was not listening on port 8081, so API end-to-end verification is pending. Vite proxies local `/api` requests to port 8081; production must set `VITE_API_BASE_URL` and configure Mission Service CORS for the deployed frontend origin.
 - Frontend verification: `npm test` **passed**, 4 tests; `npm run build` **passed** with Vite production output. TypeScript strict checking is part of the build. `npm run lint` is a TypeScript project check.
 
+### Mission operations panel
+
+- Selected mission details now include saved state, UUID, Polygon validity/type, spherical geodesic WGS84 area/perimeter estimates, airspace check loading/result/error and client-observed timestamp, plus source inventory status and limitations.
+- Saved valid single-ring mission polygons export as an RFC 7946 GeoJSON Feature with `id`, `name`, `description`, and `createdAt`. No route/waypoint data or unsupported readiness metrics are shown.
+- Dataset coverage remains unverified. A no-intersection result is explicitly limited to returned data and is not flight clearance. Measurements are approximate geodesic display values.
+- Verification for this change: `npm test` passed (8 tests), `npm run lint` passed, and `npm run build` passed. Browser layout/accessibility inspection remains manual; no Neon integration was required or run.
+
+### Waypoint route planning
+
+- Mission records now have an independent nullable PostGIS `geometry(LineString,4326)` route alongside the existing nullable Polygon. Existing Polygon records and payload semantics remain unchanged. Local/development Hibernate `update` adds the column; apply the additive statement in `services/mission-service/db/production-spatial-schema.sql` before production startup.
+- `POST /api/v1/missions` accepts a `route` GeoJSON LineString. `PUT /api/v1/missions/{id}` replaces mission metadata and its optional geometry representation. Route positions retain their ordered longitude/latitude sequence and are validated for minimum count, bounds, and consecutive duplicates.
+- The map supports numbered draggable waypoints, ordered list selection/reordering/deletion, bounded undo, approximate geodesic ground-track summary, saved route reopening/editing, confirmed route deletion, and RFC 7946 LineString export. Polygon planning/export remains separate and unchanged. Route-based airspace corridor checks are not implemented.
+- Neon-backed integration was not run for this implementation; manual desktop/mobile browser interaction and production schema application/verification remain outstanding.
+
 ## Next work
+
+### Real airspace snapshot milestone
+
+The opt-in local snapshot importer now parses the retained snapshots and commits bounded batches of at most 100 records. A unique source identity, attempt/batch markers, upserts, and final stale-row cleanup make retries idempotent; incomplete/failed datasets are hidden from spatial reads until finalization. Netherlands circles and India ENR 5.1/5.2 source documents remain non-spatial. A previous live import opened a PostGIS session but the socket reset during the long FAA import, followed by a transient DNS lookup failure; no dataset completion, inventory query, or imported-data spatial query was verified. Importer unit tests pass, and PostGIS query coverage is opt-in. The additive production migration must be applied before production startup. Source completeness, licensing/reuse rights, and coverage remain unverified.
 
 1. Keep production schema validation; apply the checked-in additive schema SQL to the production schema before deploying this version.
 2. Start Mission Service, run the frontend against its Vite `/api` proxy, and inspect desktop/mobile layouts in a browser. For deployment, set `VITE_API_BASE_URL` and configure Mission Service CORS for the actual frontend origin.

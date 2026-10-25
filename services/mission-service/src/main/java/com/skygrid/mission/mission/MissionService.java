@@ -15,10 +15,13 @@ public class MissionService {
 
     private final MissionRepository missionRepository;
     private final RestrictedZoneRepository restrictedZoneRepository;
+    private final AirspaceFeatureRepository airspaceFeatureRepository;
 
-    public MissionService(MissionRepository missionRepository, RestrictedZoneRepository restrictedZoneRepository) {
+    public MissionService(MissionRepository missionRepository, RestrictedZoneRepository restrictedZoneRepository,
+                          AirspaceFeatureRepository airspaceFeatureRepository) {
         this.missionRepository = missionRepository;
         this.restrictedZoneRepository = restrictedZoneRepository;
+        this.airspaceFeatureRepository = airspaceFeatureRepository;
     }
 
     @Transactional(readOnly = true)
@@ -27,8 +30,19 @@ public class MissionService {
     }
 
     public MissionResponse createMission(MissionRequest request) {
+        if (request.geometry() != null && !request.geometry().isNull() && request.route() != null && !request.route().isNull())
+            throw new InvalidMissionGeometryException("Provide either a Polygon mission area or a LineString route, not both.");
         Mission mission = new Mission(UUID.randomUUID(), request.name().trim(), request.description(), Instant.now(),
-                MissionGeometryCodec.parse(request.geometry()));
+                MissionGeometryCodec.parse(request.geometry()), MissionGeometryCodec.parseRoute(request.route()));
+        return MissionResponse.from(missionRepository.save(mission));
+    }
+
+    public MissionResponse updateMission(UUID id, MissionRequest request) {
+        if (request.geometry() != null && !request.geometry().isNull() && request.route() != null && !request.route().isNull())
+            throw new InvalidMissionGeometryException("Provide either a Polygon mission area or a LineString route, not both.");
+        Mission mission = missionRepository.findById(id).orElseThrow(() -> new MissionNotFoundException(id));
+        mission.update(request.name().trim(), request.description(), MissionGeometryCodec.parse(request.geometry()),
+                MissionGeometryCodec.parseRoute(request.route()));
         return MissionResponse.from(missionRepository.save(mission));
     }
 
@@ -46,17 +60,19 @@ public class MissionService {
         if (mission.getGeometry() == null) {
             throw new MissionGeometryRequiredException();
         }
-        List<RestrictedZoneCheckResponse.ZoneMatch> zones = restrictedZoneRepository
+        List<RestrictedZoneCheckResponse.ZoneMatch> zones = new java.util.ArrayList<>(restrictedZoneRepository
                 .findIntersectionsForMission(id).stream()
                 .map(zone -> new RestrictedZoneCheckResponse.ZoneMatch(
                         zone.getId(), zone.getName(), zone.getDemonstration()))
-                .toList();
+                .toList());
+        zones.addAll(airspaceFeatureRepository.findRestrictionIntersections(id).stream()
+                .map(zone -> new RestrictedZoneCheckResponse.ZoneMatch(zone.getId(), zone.getName(), false)).toList());
         boolean intersects = !zones.isEmpty();
         String message = intersects
                 ? "Mission polygon intersects one or more stored restricted-zone polygons."
                 : "No stored restricted-zone polygons intersect the mission polygon.";
         return new RestrictedZoneCheckResponse(id, intersects, message,
-                "Restricted-zone data may be synthetic demonstration data and is not an official aviation source.",
+                "Imported airspace coverage is partial and unverified. A missing match is not clearance; confirm current official aviation sources.",
                 zones);
     }
 }

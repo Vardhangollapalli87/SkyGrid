@@ -25,7 +25,8 @@ Managed PostgreSQL may host both schemas or separate databases; each service rec
 
 ## Responsibilities
 
-- **Mission Service:** implemented mission CRUD, GeoJSON polygon validation/persistence, and PostGIS restricted-zone intersection checks. Deterministic scoring, hazard proximity, risk factors, immutable history, and event consumption/dedupe/reassessment remain planned. Risk engine remains inside Mission Service.
+- **Mission Service:** implemented mission CRUD, GeoJSON Polygon and LineString route validation/persistence, and PostGIS restricted-zone intersection checks for polygon areas. Deterministic scoring, hazard proximity, risk factors, immutable history, and event consumption/dedupe/reassessment remain planned. Risk engine remains inside Mission Service.
+- Mission Service also owns the additive `airspace_features` spatial/source-record table and `airspace_dataset_imports` inventory. Local fixed-snapshot import is opt-in, idempotent by source identity, and commits bounded batches with an explicit attempt status; incomplete/failed attempts are excluded from viewport and restriction queries. Only validated compatible restriction geometries participate in the existing PostGIS check; non-spatial India AIP documents, FAA guidance, and other categories are excluded. Supplied-source coverage is unverified.
 - **Hazard Service:** hazard validation/persistence/retrieval, versioned event publication, optional attachment metadata and S3 presigning.
 - **Frontend:** implemented mission list/detail, map, polygon editing, mission creation, and backend restricted-zone check presentation. Risk scores/factors/history and hazard reporting remain planned. No frontend spatial intersection or risk calculations.
 
