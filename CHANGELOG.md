@@ -1,5 +1,12 @@
 # Changelog
 
+## Geospatial validation and workspace UX corrections (2026-10-26)
+
+- Normalize Leaflet world-copy longitudes at map click/drag boundaries before storing WGS84 GeoJSON coordinates; retain strict frontend/backend bounds checks and explicitly label displayed latitude/longitude.
+- Added reducer-backed waypoint edit/undo state, saved single-ring Polygon editing through the existing Mission PUT, and regression coverage for Karimnagar Polygon/route creation, edits, serialization, persistence payloads, invalid coordinates, and geometry separation.
+- Moved detailed airspace source inventory and layer toggles into a collapsible side-panel section; retained compact map status and unverified/in-progress coverage limitations.
+- No database schema changes, data mutations, or airspace imports.
+
 ## Production route schema recovery guidance (2026-10-25)
 
 - Documented the exact nullable PostGIS LineString column needed for the confirmed Neon schema mismatch, with read-only preflight and post-migration checks, existing-row preservation notes, and a safe manual rollout.

@@ -30,3 +30,11 @@ Tokens are an initial direction, not existing code.
 - On small screens use full-width map and collapsible details; keep primary action reachable.
 - Render UTC timestamp in readable local form while exposing exact timestamp in details.
 - Never frame score as clearance, safety determination or prediction.
+
+## Coordinate handling and workspace coverage
+
+- Leaflet coordinates enter the application through named `lat`/`lng` fields; the boundary conversion wraps a world-copy longitude into WGS84 and returns numeric GeoJSON `[longitude, latitude]`. Backend validation remains strict and rejects out-of-range values.
+- Display waypoint and cursor positions with explicit `Lat` and `Lon` labels. Keep route waypoint order and Polygon boundaries separate.
+- Saved single-ring Polygon missions can reopen in the existing boundary editor and update through the Mission API. Polygons with interior rings remain viewable but are read-only in that editor so holes are never silently discarded.
+- Show only compact source-coverage and viewport status on the map. Place inventory diagnostics and restriction/guidance layer toggles in the collapsible **Airspace Data & Coverage** section in the mission panel, with readable wrapping and scrollable details. Keep partial/in-progress and unverified-coverage warnings visible; do not infer clearance from an empty result.
+- A LineString is an intended ground track, not an executable flight plan. Do not imply altitude, duration, aircraft limits, obstacle avoidance, legal authorization, or clearance.

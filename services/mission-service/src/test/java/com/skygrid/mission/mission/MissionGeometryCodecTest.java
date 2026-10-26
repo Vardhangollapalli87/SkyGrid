@@ -107,4 +107,13 @@ class MissionGeometryCodecTest {
         assertThrows(InvalidMissionGeometryException.class, () -> MissionGeometryCodec.parseRoute(outOfRange));
         assertThrows(InvalidMissionGeometryException.class, () -> MissionGeometryCodec.parseRoute(duplicate));
     }
+
+    @Test
+    void rejectsLeafletWorldCopyLongitudeAtTheApiBoundary() throws Exception {
+        JsonNode unwrappedLongitude = objectMapper.readTree("""
+                {"type":"LineString","coordinates":[[439.16473,18.45225],[79.17035,18.44731]]}
+                """);
+
+        assertThrows(InvalidMissionGeometryException.class, () -> MissionGeometryCodec.parseRoute(unwrappedLongitude));
+    }
 }
