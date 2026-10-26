@@ -40,6 +40,12 @@ public class AirspaceSnapshotImporter {
         return results;
     }
 
+    /** Replays only the fixed FAA snapshot; intended for scoped recovery without touching other datasets. */
+    public ImportSummary importFaaSnapshot(Path repositoryRoot) throws Exception {
+        Path path = repositoryRoot.resolve("data/source-snapshots/faa-national-security-restrictions.geojson");
+        return importSnapshot(parseUsa(path));
+    }
+
     ImportSummary importSnapshot(Snapshot source) {
         UUID attemptId = UUID.randomUUID();
         AtomicLong batchIds = new AtomicLong();

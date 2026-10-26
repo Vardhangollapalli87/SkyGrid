@@ -17,6 +17,15 @@ The supplied FAA and Netherlands files were parsed locally for these structural 
 
 ## Local command
 
+For FAA-only recovery, use the scoped command below. It replays the complete fixed FAA snapshot in a new attempt and does not import or alter Netherlands or India datasets. A new attempt does not resume old batch markers; it safely upserts by source identity, then checks its own committed batch totals before finalizing status.
+
+```powershell
+cd services/mission-service
+mvn --batch-mode -s target/maven-settings.xml "-Dspring-boot.run.profiles=local" "-Dspring-boot.run.arguments=--airspace-import-faa-only --spring.main.web-application-type=none" spring-boot:run
+```
+
+Run it only after confirming no importer process is active, the FAA source snapshot is the reviewed 2,287-record input, database connectivity is stable, and the existing source-identity unique constraint plus import-batch schema are present. This command is documented for recovery and has not been run as part of the current investigation.
+
 From the repository root, with the existing local profile and PostGIS connection configured privately:
 
 ```powershell

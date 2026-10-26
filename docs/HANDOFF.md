@@ -1,5 +1,12 @@
 # SkyGrid handoff
 
+## FAA import recovery (2026-10-26)
+
+- Read-only Neon queries confirmed the FAA snapshot has 2,287 records and 2,287 unique nonempty OBJECTIDs. The database has 2,287 matching FAA rows/unique identities, 2,274 `VALID` geometries, 13 `INVALID_GEOMETRY` rows, and no duplicate identity groups. The unique source identity index exists.
+- The active attempt is `IN_PROGRESS`: 18 batch markers cover 1,800 committed feature rows (1,796 valid, 4 invalid). All 18 legacy markers have `record_count IS NULL`; their counters report 1,800 skipped plus 4 rejected, double-counting those rejected rows. The importer cannot reconcile these old markers to source counts, and does not persist per-feature rejection reasons. For the four rows seen by this attempt, source-geometry validity was recomputed read-only with PostGIS: FAA IDs 2162, 2163, 2165, 2195 each have a ring self-intersection. Those reasons were derived, not stored.
+- The current process listing check was blocked by Windows access denied, so current process state was not independently verified. No import or database mutation was run. A new attempt is generated on each run, so a complete FAA-only replay will create fresh markers, upsert by the existing unique source identity, and reconcile its own 2,287 records. Expected final status is `PARTIAL` because all 13 invalid geometries remain rejected; do not infer geographic completeness.
+- Recovery command and preconditions are in `docs/AIRSPACE_DATA_IMPORT.md`. Do not use the older all-source command for this recovery. Regression tests cover FAA-only source selection, interrupted replay without duplicate inserts, rejected-row accounting, bounded transient retries, and refusal to finalize incomplete batch markers.
+
 ### Mission–route association and containment (2026-10-26)
 
 - Saved route records remain in the existing `missions` table. Added nullable self-referencing `associated_mission_id`; multiple route-only rows may reference one area row. Existing Polygon areas and standalone LineString routes remain unchanged and are not auto-associated.

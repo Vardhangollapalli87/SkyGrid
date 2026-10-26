@@ -12,10 +12,16 @@ public class AirspaceImportRunner implements ApplicationRunner {
     public AirspaceImportRunner(AirspaceSnapshotImporter importer) { this.importer = importer; }
 
     @Override public void run(ApplicationArguments args) throws Exception {
-        if (!args.containsOption("airspace-import-snapshots")) return;
+        boolean allSources = args.containsOption("airspace-import-snapshots");
+        boolean faaOnly = args.containsOption("airspace-import-faa-only");
+        if (allSources && faaOnly) throw new IllegalArgumentException("Select only one airspace import scope");
+        if (!allSources && !faaOnly) return;
         Path root = Path.of(System.getProperty("user.dir")).toAbsolutePath();
         if (root.endsWith(Path.of("services", "mission-service"))) root = root.getParent().getParent();
-        for (AirspaceSnapshotImporter.ImportSummary summary : importer.importRepositorySnapshots(root)) {
+        var summaries = faaOnly
+                ? java.util.List.of(importer.importFaaSnapshot(root))
+                : importer.importRepositorySnapshots(root);
+        for (AirspaceSnapshotImporter.ImportSummary summary : summaries) {
             var c = summary.counts();
             System.out.printf("Airspace import complete country=%s dataset=%s status=%s parsed=%d inserted=%d updated=%d skipped=%d spatial=%d nonSpatial=%d rejected=%d duplicates=%d failed=%d%n",
                     summary.country(), summary.dataset(), summary.status(), c.parsed(), c.inserted(), c.updated(),

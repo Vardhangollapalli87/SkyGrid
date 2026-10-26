@@ -2,7 +2,10 @@ package com.skygrid.mission.mission;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -12,6 +15,27 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.*;
 
 class AirspaceSnapshotImporterTest {
+
+    @Test
+    void faaRecoveryLoadsOnlyTheFaaSnapshot(@TempDir Path root) throws Exception {
+        Path snapshotPath = root.resolve("data/source-snapshots/faa-national-security-restrictions.geojson");
+        Files.createDirectories(snapshotPath.getParent());
+        Files.writeString(snapshotPath, """
+                {"type":"FeatureCollection","features":[
+                  {"type":"Feature","properties":{"OBJECTID":17,"Facility":"Fixture"},
+                   "geometry":{"type":"Polygon","coordinates":[[[0,0],[1,0],[1,1],[0,0]]]}}
+                ]}
+                """);
+        var store = new MemoryStore();
+        var result = new AirspaceSnapshotImporter(new ObjectMapper(), store).importFaaSnapshot(root);
+
+        assertEquals("USA", result.country());
+        assertEquals("National Security Restrictions", result.dataset());
+        assertEquals("SUCCESS", result.status());
+        assertEquals(1, result.counts().processed());
+        assertEquals(1, store.records.size());
+        assertTrue(store.records.keySet().stream().allMatch(key -> key.startsWith("FAA|National Security Restrictions|")));
+    }
 
     @Test
     void repeatedSnapshotIsBoundedAndDoesNotCreateDuplicateSourceRecords() {
@@ -81,6 +105,7 @@ class AirspaceSnapshotImporterTest {
                 List.of(invalid), 1, 0, 0, "test fixture");
 
         var result = importer.importSnapshot(snapshot);
+        var replay = importer.importSnapshot(snapshot);
 
         assertEquals("PARTIAL", result.status());
         assertEquals(1, result.counts().processed());
@@ -88,6 +113,10 @@ class AirspaceSnapshotImporterTest {
         assertEquals(0, result.counts().skipped());
         assertEquals(0, result.counts().nonSpatial());
         assertEquals(1, result.counts().rejected());
+        assertEquals(1, store.records.size());
+        assertEquals("PARTIAL", replay.status());
+        assertEquals(0, replay.counts().skipped());
+        assertEquals(1, replay.counts().rejected());
         assertEquals(1, store.records.size());
     }
 
