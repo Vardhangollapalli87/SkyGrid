@@ -1,5 +1,13 @@
 # SkyGrid handoff
 
+### Mission–route association and containment (2026-10-26)
+
+- Saved route records remain in the existing `missions` table. Added nullable self-referencing `associated_mission_id`; multiple route-only rows may reference one area row. Existing Polygon areas and standalone LineString routes remain unchanged and are not auto-associated.
+- Added route list/create/update, explicit standalone-route association/detachment, and full-LineString containment APIs. Containment uses PostGIS `ST_Covers`, treating boundary-touching segments as contained. Outside linework is returned for map highlighting. Result includes status, UTC check time, and mission/route geometry hashes. Geometry checks do not establish airspace safety or flight clearance.
+- Frontend selected-area details show associated routes, create/attach actions, route selection/edit/export, and containment result. The result is hidden as soon as the selected route/area or either geometry changes; server response races are aborted/guarded.
+- Production prerequisite: review and manually apply `services/mission-service/db/migrations/V2__mission_route_association.sql` after verifying PostGIS and `missions.route`; it adds nullable column, self-FK (`ON DELETE SET NULL`), route-only association check, and partial index. No database DDL or data changes were executed in this phase.
+- Verification: Mission Service `mvn --batch-mode -s target/maven-settings.xml test package` passed 73 tests (13 opt-in PostGIS tests skipped). Frontend `npm test` passed 31 tests; `npm run lint` and `npm run build` passed. Live PostGIS association/containment integration remains unverified until the migration is applied and the opt-in tests run; browser interaction remains manual.
+
 **Current state:** Mission Service CRUD/PostGIS geospatial foundation and the React/Vite mission workspace are implemented. Hazard Service now provides stateless on-demand weather assessment from Open-Meteo for point, Polygon, and route geometries, with a frontend assessment panel. Hazard report persistence, risk scoring, Kafka flow, authentication, and production deployment remain future work. The fixed two-service architecture and five-day MVP target remain in effect.
 
 ## Verified Mission Service

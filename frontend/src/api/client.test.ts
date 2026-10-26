@@ -54,4 +54,17 @@ describe('Mission API client', () => {
     expect(reopened.route).toEqual(route)
     expect(reopened.geometry).toBeUndefined()
   })
+  it('persists route association and requests backend containment for a complete saved route', async () => {
+    const route = { id: 'route-1', name: 'Track', associatedMissionId: 'area-1' }
+    vi.mocked(fetch).mockResolvedValueOnce(new Response(JSON.stringify([route]), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(route), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ missionId: 'area-1', routeId: 'route-1', status: 'PARTLY_OUTSIDE' }), { status: 200 }))
+    await missionApi.routes('area-1')
+    await missionApi.associateRoute('route-1', 'area-1')
+    const checked = await missionApi.checkContainment('area-1', 'route-1')
+    expect(fetch).toHaveBeenNthCalledWith(1, '/api/v1/missions/area-1/routes', expect.any(Object))
+    expect(fetch).toHaveBeenNthCalledWith(2, '/api/v1/routes/route-1/association/area-1', expect.objectContaining({ method: 'PUT' }))
+    expect(fetch).toHaveBeenNthCalledWith(3, '/api/v1/missions/area-1/routes/route-1/containment', expect.any(Object))
+    expect(checked.status).toBe('PARTLY_OUTSIDE')
+  })
 })

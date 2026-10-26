@@ -11,6 +11,14 @@ Implemented Mission Service routes and the Hazard Service weather-assessment rou
 | GET | `/api/v1/missions` | Bounded paginated list | `200` |
 | GET | `/api/v1/missions/{missionId}` | Retrieve mission, including geometry when present | `200` or `404` |
 | GET | `/api/v1/missions/{missionId}/restricted-zone-check` | Check stored restricted-zone polygons with PostGIS `ST_Intersects` | `200`, `400` if geometry is absent, or `404` |
+| GET | `/api/v1/missions/{missionId}/routes` | List routes associated with a mission area | `200` |
+| POST | `/api/v1/missions/{missionId}/routes` | Create and associate a LineString route | `201` |
+| PUT | `/api/v1/missions/{missionId}/routes/{routeId}` | Update a route without changing its area | `200` |
+| DELETE | `/api/v1/missions/{missionId}/routes/{routeId}` | Clear route geometry and detach its record | `200` |
+| GET | `/api/v1/missions/{missionId}/routes/{routeId}/containment` | Check the complete route with PostGIS | `200`; outcome is in the response status field |
+| GET | `/api/v1/routes` | List standalone routes | `200` |
+| PUT | `/api/v1/routes/{routeId}/association/{missionId}` | Associate an existing route with an area | `200` |
+| DELETE | `/api/v1/routes/{routeId}/association` | Detach a route without changing its LineString | `200` |
 | GET | `/api/v1/missions/{missionId}/assessments` | Immutable history, newest first | `200` or `404` |
 | GET | `/api/v1/demo-map` | Labeled restrictions and Mission hazard projection | `200` |
 | GET | `/actuator/health` | Minimal safe health | `200`/`503` |
@@ -35,6 +43,10 @@ Illustrative request:
 `geometry` may be omitted to preserve the existing mission contract. When supplied, it must be a valid, closed, nonempty, two-dimensional GeoJSON `Polygon`; coordinate positions are `[longitude, latitude]` in WGS84/SRID 4326. Each coordinate must be within longitude `[-180,180]` and latitude `[-90,90]`. Unsupported types, malformed rings, invalid bounds, and invalid/self-intersecting topology return `400`. Mission responses include geometry when present and omit it for older missions with no geometry.
 
 A mission may instead supply `route` as a GeoJSON `LineString` with at least two ordered WGS84 `[longitude, latitude]` positions; identical consecutive positions and out-of-range/non-numeric positions return `400`. `geometry` and `route` cannot both be supplied. The API stores route separately as PostGIS `geometry(LineString,4326)`. `PUT /api/v1/missions/{missionId}` is a full replacement of the mission's optional geometry representation and metadata; omitted `geometry`/`route` values clear those values. Existing Polygon clients and data are unchanged. Route distance shown in the UI is an approximate spherical geodesic ground-track length, not guaranteed flight distance. A route is not an airspace check, flight plan clearance, obstacle avoidance result, or flight duration estimate.
+
+Mission areas and route records remain separate rows in `missions`. Route rows may optionally reference an area through nullable `associated_mission_id`; multiple routes may reference one area. Existing rows are not auto-associated. The self-reference FK and check constraint require an associated row to contain a LineString and no Polygon geometry. Standalone routes retain a null association. Apply `services/mission-service/db/migrations/V2__mission_route_association.sql` manually before deploying this version.
+
+Route containment returns `WITHIN_OR_ON_BOUNDARY`, `PARTLY_OUTSIDE`, `OUTSIDE`, `INVALID_GEOMETRY`, `MISSING_GEOMETRY`, or `UNAVAILABLE`. PostGIS `ST_Covers(area.geometry, route.route)` checks the complete LineString; boundary-touching segments count as contained. For outside results, `outsideGeometry` returns the portion outside the area as GeoJSON for display. `missionGeometryHash`, `routeGeometryHash`, and `checkedAt` identify the checked pair. The check is geometric only and never establishes clearance, legality, or safety.
 
 Restricted-zone check response example:
 

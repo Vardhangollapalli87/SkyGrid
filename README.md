@@ -4,9 +4,13 @@ SkyGrid is a decision-support prototype for assessing proposed drone mission are
 
 ## Project status
 
-The Mission Service supports mission CRUD, validated GeoJSON Polygon and LineString route storage in PostGIS, and polygon restricted-zone intersection checks. The separate Hazard Service provides on-demand hourly weather assessments for saved mission polygons and routes using Open-Meteo. The React/Vite frontend provides a map-first workspace for planning, saving, exporting, and reviewing weather forecasts. Weather is general planning information, never aviation clearance or a safety determination. Risk scoring, hazard reporting, Kafka, authentication, and deployment remain unimplemented. The zone-check API cannot establish whether its restricted-zone dataset is complete or populated; the frontend reports that limitation and never describes a mission as safe or cleared. See [docs/HANDOFF.md](docs/HANDOFF.md).
+The Mission Service supports mission CRUD, validated GeoJSON Polygon and LineString route storage in PostGIS, multiple route associations per mission area, full-route containment checks, and polygon restricted-zone intersection checks. The separate Hazard Service provides on-demand hourly weather assessments for saved mission polygons and routes using Open-Meteo. The React/Vite frontend provides a map-first workspace for planning, saving, exporting, and reviewing area-associated routes. Weather and containment are decision support only, never aviation clearance or a safety determination. Risk scoring, hazard reporting, Kafka, authentication, and deployment remain unimplemented. The zone-check API cannot establish whether its restricted-zone dataset is complete or populated; the frontend reports that limitation and never describes a mission as safe or cleared. See [docs/HANDOFF.md](docs/HANDOFF.md).
 
 ## Approved development workflow
+
+Mission areas can now have multiple explicitly associated saved routes. The backend evaluates the complete route LineString against the area with PostGIS; contained geometry is not flight clearance. The additive migration and manual rollout are documented in `services/mission-service/README.md`.
+
+The Mission Service also supports multiple explicitly associated LineString routes per mission area and a backend PostGIS containment check for the complete route. The additive database prerequisite and boundary-inclusive check semantics are documented in `API_CONTRACT.md` and `services/mission-service/README.md`. This geometry review is not flight clearance.
 
 - Use VS Code and Codex. Develop the React frontend locally with Vite.
 - Use Java 25 and Spring Boot 3.5.16 for the Mission Service. Its Maven tests and package build are verified locally.

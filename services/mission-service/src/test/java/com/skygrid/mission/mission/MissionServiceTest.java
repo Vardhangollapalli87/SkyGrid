@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -32,6 +33,12 @@ class MissionServiceTest {
 
     @Mock
     private AirspaceFeatureRepository airspaceFeatureRepository;
+
+    @Mock
+    private MissionRouteSpatialRepository routeSpatialRepository;
+
+    @Mock
+    private ObjectMapper objectMapper;
 
     @InjectMocks
     private MissionService missionService;
@@ -93,6 +100,29 @@ class MissionServiceTest {
         MissionResponse updated = missionService.updateMission(created.id(), new MissionRequest("Edited route", null, null, route));
         assertEquals("Edited route", updated.name());
         assertEquals(77.60, updated.route().path("coordinates").path(1).path(0).asDouble());
+    }
+
+    @Test
+    void createsAndListsMultipleRoutesWithoutChangingAreaGeometry() throws Exception {
+        UUID areaId = UUID.randomUUID();
+        var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        var polygonNode = mapper.readTree("{\"type\":\"Polygon\",\"coordinates\":[[[0,0],[2,0],[2,2],[0,2],[0,0]]]}" );
+        var routeNode = mapper.readTree("{\"type\":\"LineString\",\"coordinates\":[[0.2,0.2],[1,1]]}");
+        Mission area = new Mission(areaId, "Area", null, Instant.now(), MissionGeometryCodec.parse(polygonNode));
+        when(missionRepository.findById(areaId)).thenReturn(Optional.of(area));
+        when(missionRepository.save(any(Mission.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        MissionResponse first = missionService.createAssociatedRoute(areaId, new MissionRequest("Route A", null, null, routeNode));
+        MissionResponse second = missionService.createAssociatedRoute(areaId, new MissionRequest("Route B", null, null, routeNode));
+        assertEquals(areaId, first.associatedMissionId());
+        assertEquals("Polygon", MissionGeometryCodec.toGeoJson(area.getGeometry()).path("type").asText());
+        Mission firstRoute = new Mission(first.id(), first.name(), null, first.createdAt(), null, MissionGeometryCodec.parseRoute(routeNode));
+        Mission secondRoute = new Mission(second.id(), second.name(), null, second.createdAt(), null, MissionGeometryCodec.parseRoute(routeNode));
+        firstRoute.associateWith(area); secondRoute.associateWith(area);
+        when(missionRepository.findByAssociatedMission_IdOrderByCreatedAtDesc(areaId)).thenReturn(List.of(firstRoute, secondRoute));
+
+        assertEquals(2, missionService.listAssociatedRoutes(areaId).size());
+        assertEquals("Polygon", MissionGeometryCodec.toGeoJson(area.getGeometry()).path("type").asText());
     }
 
     @Test

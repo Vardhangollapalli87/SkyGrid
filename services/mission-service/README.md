@@ -58,9 +58,40 @@ Use `GET /api/v1/missions/{id}/restricted-zone-check` to evaluate the stored mis
 
 With local/development Hibernate `update`, startup adds nullable `geometry geometry(Polygon,4326)` and `route geometry(LineString,4326)` columns to `missions`, creates the new `restricted_zones` table, and creates its GiST index idempotently. Existing mission rows and identifiers are not dropped or rewritten; both geometries remain null for old records. The application does not enable PostGIS automatically.
 
-Routes use a separate GeoJSON `route` property and LineString column; they never change the meaning of the existing Polygon `geometry`. `POST /api/v1/missions` creates a route mission. `PUT /api/v1/missions/{id}` replaces the mission's geometry representation and metadata, so callers must send the complete desired representation. Route positions are ordered longitude/latitude pairs, require at least two distinct consecutive positions, and are bounded to WGS84. Production must apply the additive `route` column statement in `db/production-spatial-schema.sql` before deploying this version.
+Routes use a separate GeoJSON `route` property and LineString column; they never change the meaning of the existing Polygon `geometry`. `POST /api/v1/missions` creates a standalone route record. `PUT /api/v1/missions/{id}` retains its full-replacement behavior for the selected row. Route positions are ordered longitude/latitude pairs, require at least two distinct consecutive positions, and are bounded to WGS84. Optional area association is stored in nullable `missions.associated_mission_id`; old routes remain standalone.
 
-Production Hibernate remains `validate`. Before production startup, manually run [`db/production-spatial-schema.sql`](db/production-spatial-schema.sql) against the Mission Service schema after PostGIS has already been enabled. The script adds nullable `missions.geometry geometry(Polygon,4326)` and `missions.route geometry(LineString,4326)`, creates `restricted_zones` with non-null Polygon geometry and its GiST index, and adds the `airspace_features`, `airspace_dataset_imports`, and `airspace_import_batches` tables/indexes/columns used by the existing importer. It does not run `CREATE EXTENSION` and does not seed airspace rows. Review target schema and backup policy before applying it; do not apply automatically.
+### Mission-area route association and containment
+
+The route APIs list/create/update routes under a mission area, associate an existing standalone route, and run a PostGIS containment check. Many route rows can reference one Polygon area through a self-FK. Association does not change the route coordinates or area Polygon. A database check constraint disallows associating a Polygon row or a route row without a LineString. Existing routes are not auto-linked.
+
+For an existing database, manually review and apply [`db/migrations/V2__mission_route_association.sql`](db/migrations/V2__mission_route_association.sql) after confirming PostGIS and `missions.route` exist. It adds only a nullable UUID column, self-referencing FK with `ON DELETE SET NULL`, check constraint and partial index; existing rows retain null association. Do not replay the broader schema script to add this relationship. Safe rollout: record existing mission/route counts and take the normal backup; apply V2 manually; run the read-only checks below and confirm route and Polygon counts are unchanged; then deploy with Hibernate `validate`; finally exercise association/route persistence in a controlled test mission.
+
+```sql
+SELECT column_name, data_type, is_nullable
+FROM information_schema.columns
+WHERE table_schema = current_schema() AND table_name = 'missions'
+  AND column_name = 'associated_mission_id';
+
+SELECT conname, contype
+FROM pg_constraint
+WHERE conrelid = 'missions'::regclass
+  AND conname IN ('fk_missions_associated_mission', 'ck_missions_route_association');
+
+SELECT indexname FROM pg_indexes
+WHERE schemaname = current_schema() AND tablename = 'missions'
+  AND indexname = 'idx_missions_associated_mission';
+
+SELECT count(*) AS mission_rows,
+       count(*) FILTER (WHERE geometry IS NOT NULL) AS polygon_rows,
+       count(*) FILTER (WHERE route IS NOT NULL) AS route_rows,
+       count(*) FILTER (WHERE route IS NOT NULL AND associated_mission_id IS NULL) AS standalone_routes,
+       count(*) FILTER (WHERE associated_mission_id IS NOT NULL) AS associated_routes
+FROM missions;
+```
+
+Containment tests the complete LineString with PostGIS `ST_Covers`; boundary-touching segments count as contained. Outside portions are returned for map highlighting. Statuses distinguish within/on-boundary, partly outside, outside, invalid or missing geometry, and unavailable spatial query. This is geometric review only, not airspace clearance, legality, or safety. The UI invalidates results when either checked geometry changes.
+
+Production Hibernate remains `validate`. Before production startup, manually run [`db/production-spatial-schema.sql`](db/production-spatial-schema.sql) against a new Mission Service schema after PostGIS has already been enabled. The script adds nullable mission Polygon, LineString, and association fields; creates `restricted_zones` with its GiST index; and adds the existing importer/inventory tables. It does not run `CREATE EXTENSION` or seed airspace rows. For an established database, review a narrowly scoped migration such as `db/migrations/V2__mission_route_association.sql`; do not replay the broad schema script to add this relationship. Review target schema and backup policy before applying DDL.
 
 ### Production route-column recovery (manual)
 

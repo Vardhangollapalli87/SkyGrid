@@ -1,5 +1,12 @@
 # Changelog
 
+## Mission–route association and containment (2026-10-26)
+
+- Added nullable, self-referencing mission association for route records, APIs for listing/creating/updating/associating multiple routes, and a focused additive SQL migration. Existing routes remain standalone unless explicitly linked.
+- Added PostGIS containment of the complete ordered LineString with boundary-inclusive `ST_Covers` semantics, outside GeoJSON, structured status and geometry hashes.
+- Added a mission-panel route association/review flow with outside-line highlighting and stale-result invalidation.
+- Added service and opt-in PostGIS regression tests. No production DDL or data was run.
+
 ## Geospatial validation and workspace UX corrections (2026-10-26)
 
 - Normalize Leaflet world-copy longitudes at map click/drag boundaries before storing WGS84 GeoJSON coordinates; retain strict frontend/backend bounds checks and explicitly label displayed latitude/longitude.
@@ -79,3 +86,11 @@
 - Added focused importer replay/interruption/classification tests and an opt-in PostGIS test for restriction intersection, non-intersection, and guidance exclusion. Live Neon import and spatial results remain unverified.
 - Added a source-preserving PostGIS airspace feature model, additive production schema, local snapshot import command, dataset inventory and viewport feature APIs. FAA and Netherlands records retain source properties; Netherlands circles and India AIP source documents remain non-spatial. Coverage is explicitly unverified.
 - Added optional Leaflet airspace overlays, dataset/import status and source details. Existing mission planning flow remains available.
+# 2026-10-26
+
+## Added
+
+- Mission-area route association using a nullable self-referencing relationship on saved route records, including listing, creating, editing, and attaching standalone routes.
+- PostGIS `ST_Covers` containment for the complete route LineString, explicit boundary-inclusive semantics, geometry hashes, structured result states, and outside portions for map highlighting.
+- Responsive workspace route-association/review controls with result invalidation when the selected mission or route geometry changes.
+- Additive SQL migration `services/mission-service/db/migrations/V2__mission_route_association.sql` and opt-in PostGIS integration coverage.

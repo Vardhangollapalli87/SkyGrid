@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
+import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.LinearRing;
 import org.locationtech.jts.geom.LineString;
 import org.locationtech.jts.geom.Polygon;
@@ -116,6 +117,15 @@ final class MissionGeometryCodec {
         ArrayNode coordinates = result.putArray("coordinates");
         for (Coordinate point : route.getCoordinates()) coordinates.addArray().add(point.x).add(point.y);
         return result;
+    }
+
+    static boolean validForContainment(Geometry geometry) {
+        if (geometry == null || geometry.isEmpty() || geometry.getSRID() != SRID || !new IsValidOp(geometry).isValid()) return false;
+        if (geometry instanceof LineString line && line.getLength() == 0) return false;
+        for (Coordinate point : geometry.getCoordinates()) {
+            if (!Double.isFinite(point.x) || !Double.isFinite(point.y) || point.x < -180 || point.x > 180 || point.y < -90 || point.y > 90) return false;
+        }
+        return true;
     }
 
     private static LinearRing parseRing(JsonNode ringNode, int[] positionCount) {

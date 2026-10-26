@@ -13,9 +13,9 @@ const tiles = {
 }
 const osmAttribution = import.meta.env.VITE_MAP_TILE_ATTRIBUTION || '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
 const vertexIcon = L.divIcon({ className: 'vertex-marker', html: '<span></span>', iconSize: [16, 16], iconAnchor: [8, 8] })
-type Props = { mission?: Mission; drawing: boolean; polygonEditing: boolean; routeEditing: boolean; points: Position[]; routePoints: Position[]; selectedRouteWaypoint?: number; datasets: AirspaceDataset[]; coverageState: 'loading' | 'ready' | 'unavailable'; showRestrictions: boolean; showGuidance: boolean; onOpenCoverage: () => void; onAdd: (point: Position) => void; onMove: (index: number, point: Position) => void; onRemove: (index: number) => void; onSelectRouteWaypoint: (index: number) => void; onMoveRouteWaypoint: (index: number, point: Position) => void; tileFailed: () => void; tileLoaded: () => void }
+type Props = { mission?: Mission; routeMission?: Mission; outsideGeometry?: GeoJSON.Geometry | null; drawing: boolean; polygonEditing: boolean; routeEditing: boolean; points: Position[]; routePoints: Position[]; selectedRouteWaypoint?: number; datasets: AirspaceDataset[]; coverageState: 'loading' | 'ready' | 'unavailable'; showRestrictions: boolean; showGuidance: boolean; onOpenCoverage: () => void; onAdd: (point: Position) => void; onMove: (index: number, point: Position) => void; onRemove: (index: number) => void; onSelectRouteWaypoint: (index: number) => void; onMoveRouteWaypoint: (index: number, point: Position) => void; tileFailed: () => void; tileLoaded: () => void }
 
-export default function MissionMap({ mission, drawing, polygonEditing, routeEditing, points, routePoints, selectedRouteWaypoint, datasets, coverageState, showRestrictions, showGuidance, onOpenCoverage, onAdd, onMove, onRemove, onSelectRouteWaypoint, onMoveRouteWaypoint, tileFailed, tileLoaded }: Props) {
+export default function MissionMap({ mission, routeMission, outsideGeometry, drawing, polygonEditing, routeEditing, points, routePoints, selectedRouteWaypoint, datasets, coverageState, showRestrictions, showGuidance, onOpenCoverage, onAdd, onMove, onRemove, onSelectRouteWaypoint, onMoveRouteWaypoint, tileFailed, tileLoaded }: Props) {
   const [tileSet, setTileSet] = useState<keyof typeof tiles>('OpenStreetMap')
   const [tileState, setTileState] = useState<'loading' | 'ready' | 'error'>('loading')
   const [coordinate, setCoordinate] = useState<Position>([0, 20])
@@ -25,7 +25,7 @@ export default function MissionMap({ mission, drawing, polygonEditing, routeEdit
   const geoRings = mission?.geometry?.coordinates?.map(ring => ring.map(([lng, lat]) => [lat, lng] as [number, number]))
   const geo = geoRings?.[0]
   const draft = points.map(([lng, lat]) => [lat, lng] as [number, number])
-  const routeLine = (routeEditing ? routePoints : mission?.route?.coordinates)?.map(([lng, lat]) => [lat, lng] as [number, number])
+  const routeLine = (routeEditing ? routePoints : routeMission?.route?.coordinates ?? mission?.route?.coordinates)?.map(([lng, lat]) => [lat, lng] as [number, number])
   const mapCenter = useMemo((): [number, number] => geo?.[0] || draft[0] || [12.9716, 77.5946], [mission?.id, points.length])
   const setLayer = (layer: keyof typeof tiles) => { setTileSet(layer); setTileState('loading') }
 
@@ -40,6 +40,7 @@ export default function MissionMap({ mission, drawing, polygonEditing, routeEdit
       <MapButtons missionGeometry={geo} />
       {geoRings && !polygonEditing && <Polygon positions={geoRings} pathOptions={{ color: '#46c8c1', fillColor: '#46c8c1', fillOpacity: 0.18, weight: 2.5 }}><Tooltip sticky>{mission?.name || 'Selected mission area'}</Tooltip></Polygon>}
       {!!routeLine?.length && <Polyline positions={routeLine} pathOptions={{ color: '#147f9d', weight: 4, opacity: .95, dashArray: routeEditing ? '8 5' : undefined }} />}
+      {outsideGeometry && <GeoJSON key={`outside-${routeMission?.id ?? mission?.id}-${JSON.stringify(outsideGeometry)}`} data={outsideGeometry as never} style={() => ({ color: '#c63d3d', weight: 6, opacity: .95, dashArray: '7 5' })} />}
       {!!routeLine?.length && routeLine.map((position, index) => <Marker key={`route-${mission?.id ?? 'draft'}-${index}`} position={position} icon={waypointIcon(index + 1, selectedRouteWaypoint === index)} draggable={routeEditing} bubblingMouseEvents={false} keyboard title={`Waypoint ${index + 1}`} eventHandlers={{ click: () => onSelectRouteWaypoint(index), dragend: event => { const p = (event.target as L.Marker).getLatLng(); onMoveRouteWaypoint(index, fromLeafletLatLng(p)) } }}><Tooltip>Waypoint {index + 1}{routeEditing ? ' · drag to move' : ''}</Tooltip></Marker>)}
       {(!mission || polygonEditing) && draft.length > 2 && <Polygon positions={draft} pathOptions={{ color: '#58c9bd', fillColor: '#55cec2', fillOpacity: 0.14, weight: 2, dashArray: drawing ? '6 5' : undefined }} />}
       {(!mission || polygonEditing) && draft.map((position, index) => <Marker key={`vertex-${index}`} position={position} icon={vertexIcon} draggable bubblingMouseEvents={false} eventHandlers={{ dragend: (event) => { const p = (event.target as L.Marker).getLatLng(); onMove(index, fromLeafletLatLng(p)) }, click: () => onRemove(index) }}><Tooltip>Vertex {index + 1} · drag to edit · click to remove</Tooltip></Marker>)}

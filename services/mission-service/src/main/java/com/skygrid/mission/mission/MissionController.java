@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.DeleteMapping;
 
 import java.net.URI;
 import java.util.UUID;
@@ -50,6 +51,33 @@ public class MissionController {
     @GetMapping("/{id}")
     public MissionResponse getMission(@PathVariable UUID id) {
         return missionService.getMission(id);
+    }
+
+    @GetMapping("/{id}/routes")
+    public java.util.List<MissionResponse> listRoutes(@PathVariable UUID id) {
+        return missionService.listAssociatedRoutes(id);
+    }
+
+    @PostMapping("/{id}/routes")
+    public ResponseEntity<MissionResponse> createRoute(@PathVariable UUID id, @Valid @RequestBody MissionRequest request) {
+        MissionResponse created = missionService.createAssociatedRoute(id, request);
+        return ResponseEntity.created(URI.create("/api/v1/missions/" + id + "/routes/" + created.id())).body(created);
+    }
+
+    @PutMapping("/{id}/routes/{routeId}")
+    public MissionResponse updateRoute(@PathVariable UUID id, @PathVariable UUID routeId,
+                                       @Valid @RequestBody MissionRequest request) {
+        return missionService.updateAssociatedRoute(id, routeId, request);
+    }
+
+    @DeleteMapping("/{id}/routes/{routeId}")
+    public MissionResponse detachAndClearRoute(@PathVariable UUID id, @PathVariable UUID routeId) {
+        return missionService.clearAssociatedRoute(id, routeId);
+    }
+
+    @GetMapping("/{id}/routes/{routeId}/containment")
+    public RouteContainmentResponse checkRouteContainment(@PathVariable UUID id, @PathVariable UUID routeId) {
+        return missionService.checkRouteContainment(id, routeId);
     }
 
     @GetMapping("/{id}/restricted-zone-check")

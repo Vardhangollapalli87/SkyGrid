@@ -4,6 +4,7 @@ import com.skygrid.mission.mission.MissionNotFoundException;
 import com.skygrid.mission.mission.InvalidPaginationException;
 import com.skygrid.mission.mission.InvalidMissionGeometryException;
 import com.skygrid.mission.mission.MissionGeometryRequiredException;
+import com.skygrid.mission.mission.RouteAssociationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
@@ -17,6 +18,14 @@ import java.util.List;
 
 @RestControllerAdvice
 public class ApiExceptionHandler {
+
+    @ExceptionHandler(RouteAssociationException.class)
+    public ResponseEntity<ProblemDetail> handleRouteAssociation(RouteAssociationException exception) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, exception.getMessage());
+        problem.setType(URI.create("about:blank"));
+        problem.setTitle("Route association conflict");
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(problem);
+    }
 
     @ExceptionHandler(MissionNotFoundException.class)
     public ResponseEntity<ProblemDetail> handleNotFound(MissionNotFoundException exception) {
