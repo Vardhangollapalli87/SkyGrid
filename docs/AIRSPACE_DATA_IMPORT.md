@@ -15,16 +15,37 @@ The reliability change adds `last_seen_attempt_id` and a unique source-identity 
 
 The supplied FAA and Netherlands files were parsed locally for these structural counts. The FAA snapshot is specifically labelled national-security restrictions; it is not FAA UAS Facility Map altitude guidance. FAA UASFM values are informational and do not grant flight authorization ([FAA explanation](https://www.faa.gov/uas/commercial_operators/uas_facility_maps/faq)); that separate dataset is not imported here. The specific provider URL, terms, and licensing for the supplied FAA snapshot and Netherlands file were not verified. Import counts are reported only by the import command and dataset API after an actual database import. No source snapshot is included in Git; the root `.gitignore` excludes `data/source-snapshots/`. Preserve source attribution and check each source's applicable terms before publishing or redistributing records.
 
+## Verified FAA recovery (2026-10-26)
+
+The completed FAA National Security Restrictions import accounts for 2,287 parsed records: 2,274 spatial and skipped/already present, 13 rejected, 0 duplicates, and 0 failed. The final dataset status is `PARTIAL`; `coverageVerified` remains false. The FAA national-security-restrictions snapshot is not a complete U.S. airspace dataset and must not be described as complete coverage, proof of safety, or flight clearance.
+
+Rejection reasons for the 13 records are not persisted in the database and are not exposed by `GET /api/v1/airspace/datasets`. Do not infer reasons from the aggregate count. The inventory endpoint maps stored database fields, but its live HTTP response has not been verified.
+
 ## Local command
 
-For FAA-only recovery, use the scoped command below. It replays the complete fixed FAA snapshot in a new attempt and does not import or alter Netherlands or India datasets. A new attempt does not resume old batch markers; it safely upserts by source identity, then checks its own committed batch totals before finalizing status.
+For a future FAA-only import, use the scoped command below. It replays the complete fixed FAA snapshot in a new attempt and does not import or alter Netherlands or India datasets. A new attempt does not resume old batch markers; it safely upserts by source identity, then checks its own committed batch totals before finalizing status.
 
 ```powershell
 cd services/mission-service
 mvn --batch-mode -s target/maven-settings.xml "-Dspring-boot.run.profiles=local" "-Dspring-boot.run.arguments=--airspace-import-faa-only --spring.main.web-application-type=none" spring-boot:run
 ```
 
-Run it only after confirming no importer process is active, the FAA source snapshot is the reviewed 2,287-record input, database connectivity is stable, and the existing source-identity unique constraint plus import-batch schema are present. This command is documented for recovery and has not been run as part of the current investigation.
+Before a future import, check for an existing importer process using the PowerShell procedure below. Also confirm the FAA source snapshot is the reviewed 2,287-record input, database connectivity is stable, and the source-identity unique constraint and import-batch schema are present. The process check is a precaution, not proof that no import is active.
+
+```powershell
+try {
+    $matches = Get-CimInstance -ClassName Win32_Process -Filter "Name = 'java.exe'" -ErrorAction Stop |
+        Where-Object { $_.CommandLine -match '--airspace-import-(faa-only|snapshots)' } |
+        Select-Object ProcessId, Name
+
+    if ($matches) { $matches } else { 'No matching Java importer process found.' }
+}
+catch {
+    "Process check unavailable: $($_.Exception.GetType().Name)"
+}
+```
+
+This prints only matching process IDs and names, never command-line arguments or environment values. A missing match is not conclusive: process visibility can be restricted, and an importer may be launched in another session or under another executable. If the check is unavailable or uncertain, resolve that uncertainty before starting an import.
 
 From the repository root, with the existing local profile and PostGIS connection configured privately:
 
@@ -58,7 +79,7 @@ finally { $client.Dispose() }
 
 If DNS succeeds but the Java import later reports a socket reset, check Neon endpoint status/compute state and the local network/proxy/firewall at the failure time. A later `UnknownHostException` is a DNS resolution failure, not evidence that credentials were rejected. The prior run did not establish whether the reset originated from the client network, DNS path, or database endpoint. The importer now uses bounded short transactions and retries only SQL connection/transaction failures up to three times; data errors are not retried as transient failures.
 
-An import attempt on 25 October 2026 established a database session and ran PostGIS geometry validation, but the socket reset during the FAA import and a reconnect reported a DNS lookup failure. No dataset completed, no final counts or inventory/API results were verified, and no imported-feature intersection query was completed. The batch importer reliability work is covered by local unit tests, but Neon import and real database recovery remain unverified. Resolve the intermittent connection, apply/check the additive schema, then rerun the documented command and verify all counts before treating a dataset as imported.
+Historical first-attempt note (25 October 2026): an import attempt established a database session and ran PostGIS geometry validation, but the socket reset during the FAA import and a reconnect reported a DNS lookup failure. That interrupted attempt did not complete. The subsequent FAA recovery and final counts are recorded above; live inventory HTTP behavior remains unverified.
 
 ## API and meaning
 

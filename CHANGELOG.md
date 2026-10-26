@@ -1,5 +1,13 @@
 # Changelog
 
+## Render gateway deployment preparation (2026-10-26)
+
+- Added the WebFlux API Gateway, route/CORS/correlation/error tests, Java 25 container files for the Gateway and two existing services, and a single public Vite API base variable. Render Private Service pricing and Spring Cloud 2025.0.x support status remain blockers; no resources or deployment were created.
+
+## Initial MVP deployment preparation (2026-10-26)
+
+- Recorded owner acceptance of unauthenticated public APIs and deferral of V2 for the initial deployment. The existing Neon schema lacks the route-association check constraint and partial index; no database changes or deployment have been made.
+
 ## Mission–route association and containment (2026-10-26)
 
 - Added nullable, self-referencing mission association for route records, APIs for listing/creating/updating/associating multiple routes, and a focused additive SQL migration. Existing routes remain standalone unless explicitly linked.
@@ -82,9 +90,9 @@
 - Added frontend geometry/API tests and documented local setup in the README.
 # Unreleased
 
-- Added an FAA-only recovery command so a complete replay can finalize the USA dataset without importing the deferred Netherlands or India snapshots. Recovery uses a fresh attempt and stable source-identity upserts; it does not reuse legacy batch markers with NULL record counts (fingerprint presence was not checked). Verified current Neon state read-only: 2,287 FAA rows/unique identities, 2,274 valid geometries, 13 invalid geometries, and no duplicate identities. Current attempt is still IN_PROGRESS; no import was run. FAA completeness remains unverified.
+- Verified FAA National Security Restrictions recovery: 2,287 parsed, 2,274 spatial/skipped, 13 rejected, 0 duplicates, 0 failures; final status `PARTIAL`, coverage unverified. Rejection reasons are not persisted or exposed by the inventory API. The live inventory HTTP response remains unverified; this dataset is not complete U.S. airspace coverage.
 - Reworked the opt-in airspace snapshot importer to commit batches of up to 100 records, use attempt/batch markers for safe retry after ambiguous commits, isolate permanent data errors, and expose per-attempt progress/counts. Incomplete datasets are hidden from spatial APIs until finalization; source IDs are protected by a unique database index. This requires the additive importer schema in `services/mission-service/db/production-spatial-schema.sql`.
-- Added focused importer replay/interruption/classification tests and an opt-in PostGIS test for restriction intersection, non-intersection, and guidance exclusion. Live Neon import and spatial results remain unverified.
+- Added focused importer replay/interruption/classification tests and an opt-in PostGIS test for restriction intersection, non-intersection, and guidance exclusion. At that implementation stage, live Neon import and spatial results were unverified; the later FAA recovery is recorded above.
 - Added a source-preserving PostGIS airspace feature model, additive production schema, local snapshot import command, dataset inventory and viewport feature APIs. FAA and Netherlands records retain source properties; Netherlands circles and India AIP source documents remain non-spatial. Coverage is explicitly unverified.
 - Added optional Leaflet airspace overlays, dataset/import status and source details. Existing mission planning flow remains available.
 # 2026-10-26

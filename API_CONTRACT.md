@@ -1,6 +1,6 @@
 # API contract
 
-Implemented Mission Service routes and the Hazard Service weather-assessment route are identified below. Hazard reporting, assessment history, and map routes remain planned. JSON APIs use `/api/v1`, UUID IDs, UTC ISO-8601 times, GeoJSON longitude/latitude, validated input, and safe problem responses.
+Implemented Mission Service routes and the Hazard Service weather-assessment route are identified below. The deployment Gateway forwards `/api/v1/missions/**`, `/api/v1/routes/**`, and `/api/v1/airspace/**` unchanged to Mission Service and `/api/v1/hazards/**` unchanged to Hazard Service. The API paths and payload contracts do not change. Hazard reporting, assessment history, and map routes remain planned. JSON APIs use `/api/v1`, UUID IDs, UTC ISO-8601 times, GeoJSON longitude/latitude, validated input, and safe problem responses.
 
 ## Mission Service
 

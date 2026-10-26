@@ -31,7 +31,7 @@ export function weatherPanelReducer(state: WeatherPanelState, action: WeatherPan
 }
 export function weatherAssessmentIsStale(state: WeatherPanelState) { return (state.status === 'loading' || state.status === 'unavailable' || state.status === 'validation-error') && Boolean(state.assessment) }
 
-const base = (import.meta.env.VITE_HAZARD_API_BASE_URL || '/hazard-api').replace(/\/$/, '')
+const base = (import.meta.env.VITE_API_BASE_URL || '/hazard-api').replace(/\/$/, '')
 export class WeatherApiError extends Error {
   constructor(message: string, readonly kind: 'validation' | 'provider' | 'network' | 'timeout', readonly status?: number) { super(message); this.name = 'WeatherApiError' }
 }

@@ -2,7 +2,7 @@
 
 ## Status
 
-Mission Service CRUD, the PostGIS mission-geometry foundation, route-to-area association, and complete-route containment are implemented. The React/Vite mission workspace and a separate stateless Hazard Service weather-assessment API are implemented. Hazard report persistence, Kafka flow, risk scoring, authentication, and deployment remain planned. SkyGrid is a decision-support prototype with demonstration data, not flight authorization or safety certification. Approved workflow is cloud-first: VS Code/Codex, local Java 25 and Vite, managed PostgreSQL/PostGIS and Kafka, AWS S3, Vercel frontend, and a compatible container host for services. No local database, broker, Docker, or Compose setup. Docker is introduced in deployment preparation only.
+Mission Service CRUD, the PostGIS mission-geometry foundation, route-to-area association, and complete-route containment are implemented. The React/Vite mission workspace and separate stateless Hazard Service weather-assessment API are implemented. A deployment-only API Gateway is implemented as an edge proxy; the two business services remain Mission and Hazard. Gateway behavior is tested, but deployment remains unverified. Hazard report persistence, Kafka flow, risk scoring, and authentication remain unimplemented. SkyGrid is a decision-support prototype with demonstration data, not flight authorization or safety certification. Docker is used only for deployment preparation; no local Docker or Compose setup is added.
 
 Spring Boot 3.5.16 is the pinned candidate. Official Spring Boot 3.5 system requirements list Java compatibility through Java 25. This verifies framework support, not this project's build, dependencies, database driver, or hosting runtime; those require build/runtime verification.
 
@@ -11,8 +11,9 @@ Spring Boot 3.5.16 is the pinned candidate. Official Spring Boot 3.5 system requ
 ```mermaid
 flowchart LR
   U[Operator] --> FE[React and TypeScript]
-  FE -->|HTTPS JSON| MS[Mission Service]
-  FE -->|HTTPS JSON| HS[Hazard Service]
+  FE -->|HTTPS JSON| GW[Public API Gateway]
+  GW -->|private HTTP| MS[Mission Service]
+  GW -->|private HTTP| HS[Hazard Service]
   HS -->|HTTPS forecast request| OM[Open-Meteo Forecast API]
   MS --> PG[(Postgres/PostGIS mission schema)]
   HS --> PGH[(Postgres hazard schema)]
@@ -25,6 +26,8 @@ flowchart LR
 Managed PostgreSQL may host both schemas or separate databases; each service receives least-privilege access only to its owned schema/data. The existing Neon development database is PostgreSQL 18.6 with PostGIS enabled and verified by live SRID/intersection probes. Mission cannot read Hazard tables. The hazard projection from events remains planned.
 
 ## Responsibilities
+
+- **API Gateway (deployment edge):** routes existing `/api/v1/missions/**`, `/api/v1/routes/**`, and `/api/v1/airspace/**` paths to Mission Service and `/api/v1/hazards/**` to Hazard Service without path rewriting. It owns browser CORS and request correlation IDs; it contains no business logic or data access. On Render, expose only the Gateway publicly and use private backend services when their paid plans are selected.
 
 - **Mission Service:** implemented mission CRUD, GeoJSON Polygon and LineString route validation/persistence, multiple route associations to a mission area, PostGIS whole-LineString containment (`ST_Covers`, boundary inclusive), and polygon restricted-zone intersection checks. Existing routes remain standalone until explicitly associated. Deterministic scoring, hazard proximity, risk factors, immutable history, and event consumption/dedupe/reassessment remain planned. Risk engine remains inside Mission Service.
 - Mission Service also owns the additive `airspace_features` spatial/source-record table and `airspace_dataset_imports` inventory. Local fixed-snapshot import is opt-in, idempotent by source identity, and commits bounded batches with an explicit attempt status; incomplete/failed attempts are excluded from viewport and restriction queries. Only validated compatible restriction geometries participate in the existing PostGIS check; non-spatial India AIP documents, FAA guidance, and other categories are excluded. Supplied-source coverage is unverified.
@@ -59,9 +62,9 @@ DB commit and Kafka publication are not atomic by default. Prefer a Hazard-owned
 
 ## Cloud resources and environment
 
-Provisional production candidates (not approved/provisioned): Neon Free PostgreSQL 17; Aiven Kafka Free with compatible Kafka protocol/TLS/auth; one OCI Always Free Ampere A1 host for both Spring services; Vercel Hobby for static frontend. The separate existing development database is Neon PostgreSQL 18.6 with PostGIS verified. S3 is deferred for the MVP. No production resource identifiers, credentials, or selected regions are recorded. See `docs/CLOUD_PROVIDER_COMPARISON.md` for quotas/prices and caveats.
+For this deployment preparation, Render is the requested backend target with a public Gateway and private Mission/Hazard services; Vercel is the frontend target. This supersedes the older provisional OCI host candidate for this deployment. No resources have been created and no regions, service identifiers, internal URLs, or public URLs are recorded. The existing development database is Neon PostgreSQL 18.6 with PostGIS verified. S3 is deferred and Kafka is unused by current features. See `docs/RENDER_DEPLOYMENT.md` for plan limitations and exact settings.
 
-Required runtime configuration names are listed in `infra/.env.example`: Mission database JDBC URL/user/password; future Kafka bootstrap/security settings; allowed frontend CORS origin; weather endpoint/timeouts, route limits and general thresholds; optional AWS region/evidence bucket if S3 is later approved; and public Vite API base URLs. Hazard Service currently requires no database, Kafka, or provider credential. Database/Kafka credentials belong in the cloud host's secret manager. Prefer workload identity/role for AWS rather than static access keys. `VITE_*` values are bundled into browser assets and must contain public URLs only, never secrets.
+Required runtime configuration names are listed in `infra/.env.example`: Mission's `DATABASE_URL`, production profile and schema-validation settings; Gateway internal service URLs and `CORS_ALLOWED_ORIGINS`; Hazard weather endpoint/timeouts/route limits/thresholds; future Kafka settings; and the single public `VITE_API_BASE_URL`. Hazard Service currently requires no database, Kafka, or provider credential. Database/Kafka credentials belong in the cloud host's secret manager. `VITE_*` values are bundled into browser assets and must contain public URLs only, never secrets.
 
 Network requirements: services need outbound reachability to PostgreSQL and Kafka endpoints using provider-required ports and TLS; Hazard Service needs scoped S3 API access only if attachments are later enabled; Vercel users need HTTPS access to the API host. The provisional free stack assumes public TLS endpoints, not provider peering. Neon Free has no IP Allow or private networking; the database endpoint is publicly reachable and relies on TLS identity validation, strong credentials, and least-privilege roles. Aiven IP filter availability on Free must be verified. Do not use real sensitive data on this candidate. Configure CORS only for actual Vercel origin. Verify DNS, egress restrictions, TLS certificates, connection limits/pooling and idle timeout behavior.
 
@@ -71,7 +74,7 @@ PostGIS extension and spatial predicates are verified against the existing local
 
 Choose simple demo write authentication before implementation. Restrict CORS to configured frontend, validate requests, parameterize SQL, limit Actuator, keep DB/Kafka protected with TLS and strong credentials, and keep any future S3 private with short-lived scoped presigned URLs and upload size/type limits. No AWS credentials in browser.
 
-Development: React/Vite and Spring services run locally in VS Code/Codex (Java 25, Spring Boot 3.5.16) and connect over TLS to managed services. No local Postgres/PostGIS/Kafka/Docker/Compose. The current local Neon database reports PostgreSQL 18.6 and PostGIS spatial operations pass. Provisional deployment candidate from research: Neon Free, Aiven Kafka Free, one OCI Always Free Ampere A1 VM running both independent Spring services, Vercel Hobby static frontend; defer S3 attachments. Introduce Docker during deployment preparation only. Provider/region selection remains unapproved and has region, card-verification, idle-reclamation and continuous-Kafka risks. See `docs/CLOUD_PROVIDER_COMPARISON.md`. No API gateway or Kubernetes.
+Development: React/Vite and Spring services run locally in VS Code/Codex (Java 25, Spring Boot 3.5.16) and connect over TLS to managed services. No local Postgres/PostGIS/Kafka/Docker/Compose. The current local Neon database reports PostgreSQL 18.6 and PostGIS spatial operations pass. Render and Vercel are deployment targets for this preparation; no resources have been provisioned. The Gateway is infrastructure only, not a third business service. See `docs/RENDER_DEPLOYMENT.md` for Render plan constraints and deployment steps. S3 remains deferred; Kafka is unused by current features.
 
 The zero-cost design uses public TLS endpoints between providers because Neon private AWS PrivateLink is paid and Aiven Free does not guarantee private peering. Neon Free also lacks IP Allow, so it cannot source-restrict the public database endpoint. Connections rely on TLS identity validation, strong credentials, and least-privilege roles; use synthetic demo data only. Verify Aiven Free IP filter availability, DNS, egress costs, service-region overlap and actual connectivity. Do not claim private networking. OCI Always Free has 10 TB/month outbound allowance; Neon Free has 5 GB/month public DB egress. Aiven network usage is not separately billed on classic pricing, but client-provider transfer costs may apply. Owner approval must explicitly accept this exposure model before provisioning.
 

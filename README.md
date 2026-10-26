@@ -4,7 +4,7 @@ SkyGrid is a decision-support prototype for assessing proposed drone mission are
 
 ## Project status
 
-The Mission Service supports mission CRUD, validated GeoJSON Polygon and LineString route storage in PostGIS, multiple route associations per mission area, full-route containment checks, and polygon restricted-zone intersection checks. The separate Hazard Service provides on-demand hourly weather assessments for saved mission polygons and routes using Open-Meteo. The React/Vite frontend provides a map-first workspace for planning, saving, exporting, and reviewing area-associated routes. Weather and containment are decision support only, never aviation clearance or a safety determination. Risk scoring, hazard reporting, Kafka, authentication, and deployment remain unimplemented. The zone-check API cannot establish whether its restricted-zone dataset is complete or populated; the frontend reports that limitation and never describes a mission as safe or cleared. See [docs/HANDOFF.md](docs/HANDOFF.md).
+The Mission Service supports mission CRUD, validated GeoJSON Polygon and LineString route storage in PostGIS, multiple route associations per mission area, full-route containment checks, and polygon restricted-zone intersection checks. The separate Hazard Service provides on-demand hourly weather assessments for saved mission polygons and routes using Open-Meteo. The React/Vite frontend provides a map-first workspace for planning, saving, exporting, and reviewing area-associated routes. A deployment-only API Gateway routes browser requests to the two existing services; it adds no business logic. Weather and containment are decision support only, never aviation clearance or a safety determination. Risk scoring, hazard reporting, Kafka, authentication, and live deployment remain unimplemented. The zone-check API cannot establish whether its restricted-zone dataset is complete or populated; the frontend reports that limitation and never describes a mission as safe or cleared. See [docs/HANDOFF.md](docs/HANDOFF.md) and [Render deployment preparation](docs/RENDER_DEPLOYMENT.md).
 
 ## Approved development workflow
 
@@ -15,10 +15,10 @@ The Mission Service also supports multiple explicitly associated LineString rout
 - Use VS Code and Codex. Develop the React frontend locally with Vite.
 - Use Java 25 and Spring Boot 3.5.16 for the Mission Service. Its Maven tests and package build are verified locally.
 - Do not install/configure local PostgreSQL, PostGIS, Kafka, Docker, or Compose. Do not change Windows system settings for this project.
-- The existing local profile connects to Neon PostgreSQL 18.6 with PostGIS enabled and spatial queries verified. Kafka and deployment providers remain subject to the documented provider decision and verification requirements.
+- The existing local profile connects to Neon PostgreSQL 18.6 with PostGIS enabled and spatial queries verified. Kafka remains unused by implemented features. Render and Vercel are the current deployment targets for the preparation documented in `docs/RENDER_DEPLOYMENT.md`; no services or provider resources are deployed.
 - The Mission Service includes an opt-in, bounded-batch, repeat-safe snapshot importer and viewport-based airspace API for the supplied FAA national-security GeoJSON, Netherlands ED-269 polygons, and retained India AIP ENR 5.1/5.2 source documents. Import execution against Neon remains unverified after an intermittent connection reset; coverage remains partial and unverified. See `docs/AIRSPACE_DATA_IMPORT.md`.
 - Use AWS S3 for private evidence attachments. Use workload identity/role on the service host where available; never put AWS credentials in the browser or source.
-- Introduce Docker only during deployment preparation. Provisional host research recommends one OCI Always Free A1 VM for both separate Spring services and Vercel Hobby for the frontend. This is not approved or provisioned; verify region, Java 25/ARM64 compatibility, connectivity, limits, and pricing first.
+- Dockerfiles are being prepared for Render. Render's private Mission and Hazard services require paid plans to keep the Gateway as the only public backend. Provider account setup, plan selection, and deployment still require owner action.
 
 ## Planned stack and architecture
 
@@ -35,6 +35,7 @@ All restrictions and hazards are demonstration data. No official aviation data, 
 ```text
 services/mission-service/  Mission API, risk engine, event consumer
 services/hazard-service/   Weather forecast API; future hazard-report/event producer
+services/api-gateway/      Public deployment edge; routes requests to private APIs
 frontend/                  React/Vite application
 infra/                     Cloud environment variable reference
 docs/                      Design and handoff documentation
@@ -42,7 +43,7 @@ docs/                      Design and handoff documentation
 
 ## Cloud configuration
 
-`infra/.env.example` lists variable names only and contains no provider identifiers or credentials. Obtain database endpoint/name/user, TLS requirements, Kafka bootstrap/security settings, and service/frontend origins from selected providers. S3 region/bucket apply only if attachments are later approved. Put secrets in the hosting provider's secret manager/runtime configuration, not in Git or Vite variables. See [ARCHITECTURE.md](ARCHITECTURE.md) and [CODING_GUIDELINES.md](CODING_GUIDELINES.md).
+`infra/.env.example` lists variable names only and contains no provider identifiers or credentials. Obtain database endpoint/name/user, TLS requirements, and Render internal URLs from selected services. S3 region/bucket apply only if attachments are later approved. Put secrets in the hosting provider's secret manager/runtime configuration, not in Git or Vite variables. See [ARCHITECTURE.md](ARCHITECTURE.md), [CODING_GUIDELINES.md](CODING_GUIDELINES.md), and [Render deployment preparation](docs/RENDER_DEPLOYMENT.md).
 
 ## Provisional zero-cost provider research
 
@@ -58,7 +59,7 @@ Copy-Item .env.example .env.local
 npm run dev
 ```
 
-Leave `VITE_API_BASE_URL` and `VITE_HAZARD_API_BASE_URL` empty for local development. Vite proxies Mission `/api` requests to port 8081 and `/hazard-api/api` requests to Hazard Service port 8082. For deployment, set the two variables to the corresponding public service origins; configure each service's CORS for the exact frontend origin. Set `VITE_MAP_TILE_URL` only to a tile service whose usage policy and traffic allowance fit the demo; the default OpenStreetMap endpoint is subject to its [tile usage policy](https://operations.osmfoundation.org/policies/tiles/), including attribution, caching, no bulk prefetch, and best-effort availability. If you replace that URL, set matching `VITE_MAP_TILE_ATTRIBUTION`. The alternate Carto light layer is also public and subject to [CARTO Basemaps terms](https://carto.com/legal/basemap-terms/). These URLs are public configuration, not credentials; neither provider is represented as unlimited or guaranteed free for production traffic.
+Leave `VITE_API_BASE_URL` empty for local development. Vite proxies Mission `/api` requests to port 8081 and `/hazard-api/api` requests to Hazard Service port 8082. For deployment, set the single `VITE_API_BASE_URL` to the public API Gateway origin; configure the Gateway's CORS for the exact frontend origin. Set `VITE_MAP_TILE_URL` only to a tile service whose usage policy and traffic allowance fit the demo; the default OpenStreetMap endpoint is subject to its [tile usage policy](https://operations.osmfoundation.org/policies/tiles/), including attribution, caching, no bulk prefetch, and best-effort availability. If you replace that URL, set matching `VITE_MAP_TILE_ATTRIBUTION`. The alternate Carto light layer is also public and subject to [CARTO Basemaps terms](https://carto.com/legal/basemap-terms/). These URLs are public configuration, not credentials; neither provider is represented as unlimited or guaranteed free for production traffic.
 
 Run frontend checks from `frontend/` with `npm test`, `npm run lint`, and `npm run build`. The browser never receives database, Kafka, or cloud credentials. Local environment files and generated assets are ignored by `frontend/.gitignore`.
 

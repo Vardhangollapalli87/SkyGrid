@@ -12,7 +12,7 @@ mvn --batch-mode -s ../mission-service/target/maven-settings.xml spring-boot:run
 
 The service listens on port 8082 by default and exposes `GET /actuator/health`. No database, Kafka broker, provider API key, Docker, or paid resource is required for this endpoint. The forecast provider is called only when a client posts an assessment.
 
-The Vite development server proxies `/hazard-api/*` to this local service and removes the `/hazard-api` prefix. Leave `VITE_HAZARD_API_BASE_URL` empty in `frontend/.env.local` to use that proxy. For a deployed frontend, set it to the public HTTPS Hazard Service origin; this value is public browser configuration, not a secret.
+The Vite development server proxies `/hazard-api/*` to this local service and removes the `/hazard-api` prefix. Leave `VITE_API_BASE_URL` empty in `frontend/.env.local` to use that proxy. In the Render deployment, the frontend sends weather requests through the public API Gateway; the Hazard Service is a private internal service.
 
 ## Weather assessment
 
@@ -39,9 +39,9 @@ All settings are optional and have the documented defaults. They can be overridd
 | `WEATHER_PRECIPITATION_THRESHOLD_MM_PRECEDING_HOUR` | `2` | General threshold for precipitation accumulated over the preceding hour |
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:5173` | Allowed frontend origin(s), comma separated |
 
-Configure `CORS_ALLOWED_ORIGINS` to the exact deployed frontend origin. The service performs synchronous outbound HTTPS calls and uses bounded retries (up to three attempts) for rate limiting, upstream server failures, and network timeouts. Keep the host's outbound DNS/HTTPS access to Open-Meteo available. There are no secrets in the forecast request or required provider credentials. Review current provider terms, attribution requirements, endpoint availability, and usage policy before public deployment.
+For a direct browser deployment, configure `CORS_ALLOWED_ORIGINS` to the exact frontend origin. In the requested private-service topology, the API Gateway owns CORS and removes `Origin` before forwarding. The service performs synchronous outbound HTTPS calls and uses bounded retries (up to three attempts) for rate limiting, upstream server failures, and network timeouts. Keep the host's outbound DNS/HTTPS access to Open-Meteo available. There are no secrets in the forecast request or required provider credentials. Review current provider terms, attribution requirements, endpoint availability, and usage policy before public deployment.
 
-No public Hazard Service host is currently configured. The provider comparison's backend host is provisional and must not be presented as a deployment. In a container host, set its supplied `PORT`, the weather settings above as needed, and `CORS_ALLOWED_ORIGINS`; provide outbound DNS and HTTPS access to Open-Meteo. The API is stateless and requires no database or Kafka configuration.
+Render is the requested deployment target for this preparation, but no Hazard Service resource is configured or deployed. Keep Hazard as a Render Private Service in the same region as the public Gateway; set `PORT=10000` and allow outbound DNS/HTTPS to Open-Meteo. The Gateway owns browser CORS and strips `Origin` before forwarding. Hazard remains stateless and requires no database or Kafka configuration. Render private services have TCP-only dashboard health checks; the application still exposes `GET /actuator/health` for internal verification. See `../../docs/RENDER_DEPLOYMENT.md`.
 
 ## Verification
 
